@@ -264,9 +264,10 @@ button.tile:hover{border-color:var(--amber-line);transform:translateY(-2px)}
 .dh h3{font-size:17px;line-height:1.5}
 .db{overflow:auto;padding:16px 18px 30px;display:flex;flex-direction:column;gap:16px}
 .sec h4{font-size:13px;color:var(--muted);margin-bottom:8px;font-weight:600}
-.row{display:flex;justify-content:space-between;gap:14px;align-items:center;padding:8px 0;border-bottom:1px dashed var(--line);font-size:14px}
-.row span:first-child{color:var(--muted);flex:none;max-width:45%}
-.row span:last-child{display:flex;align-items:center;gap:6px;text-align:end;word-break:break-word;min-width:0}
+.row{display:flex;justify-content:space-between;gap:16px;align-items:center;padding:9px 0;border-bottom:1px dashed var(--line);font-size:14px}
+.row span:first-child{color:var(--muted);flex-shrink:0;white-space:nowrap}
+.row span:last-child{display:flex;align-items:center;justify-content:flex-end;gap:6px;text-align:end;word-break:normal;overflow-wrap:break-word}
+.row span:last-child .mono{white-space:nowrap}
 .same{display:flex;flex-direction:column;gap:6px}
 .same button{display:flex;justify-content:space-between;gap:10px;padding:9px 12px;border-radius:10px;background:var(--panel);border:1px solid var(--line);text-align:start;font-size:13.5px}
 .same button:hover{border-color:var(--amber-line)}
