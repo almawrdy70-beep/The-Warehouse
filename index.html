@@ -515,7 +515,7 @@ async function copyText(text) {
 }
 
 /* =========================================================
-   إعداد قاعدة بيانات Firebase Firestore السحابية والمحلية (Hybrid DB)
+   إعداد قاعدة بيانات Firebase Realtime Database
    ========================================================= */
 const firebaseConfig = {
   apiKey: "AIzaSyAN_ZqaZr4_Uid_OSn-viCE4xC8V-Yzzvs",
@@ -531,7 +531,7 @@ const firebaseConfig = {
 if (!firebase.apps.length) {
   firebase.initializeApp(firebaseConfig);
 }
-const db = firebase.firestore();
+const rtdb = firebase.database();
 
 const DB = {
   idb: null, ok: false,
@@ -550,10 +550,8 @@ const DB = {
   },
   async get(store, key) {
     try {
-      if (store === 'meta') {
-        const doc = await db.collection('metadata').doc(key).get();
-        if (doc.exists) return doc.data();
-      }
+      const snap = await rtdb.ref(store + '/' + key).once('value');
+      if (snap.exists()) return snap.val();
     } catch {}
     if (!this.idb) return null;
     return new Promise((res) => {
@@ -565,11 +563,11 @@ const DB = {
   },
   async getAll(store) {
     try {
-      if (store === 'records') {
-        const snapshot = await db.collection('parts_records').get();
-        if (!snapshot.empty) {
-          return snapshot.docs.map(doc => doc.data().row);
-        }
+      const snap = await rtdb.ref(store).once('value');
+      if (snap.exists() && store === 'records') {
+        const val = snap.val();
+        if (Array.isArray(val)) return val;
+        if (typeof val === 'object') return Object.values(val);
       }
     } catch {}
     if (!this.idb) return [];
@@ -582,9 +580,7 @@ const DB = {
   },
   async put(store, key, val) {
     try {
-      if (store === 'meta') {
-        await db.collection('metadata').doc(key).set(val);
-      }
+      await rtdb.ref(store + '/' + key).set(val);
     } catch {}
     if (!this.idb) return;
     return new Promise((res) => {
@@ -596,18 +592,12 @@ const DB = {
   },
   async commit({rows, metaPuts, backup}) {
     try {
+      const updates = {};
       for (const k in metaPuts) {
-        await db.collection('metadata').doc(k).set(metaPuts[k]);
+        updates['meta/' + k] = metaPuts[k];
       }
-      const batch = db.batch();
-      const snapshot = await db.collection('parts_records').get();
-      snapshot.docs.forEach(doc => batch.delete(doc.ref));
-      
-      rows.forEach((row, i) => {
-        const ref = db.collection('parts_records').doc(String(i));
-        batch.set(ref, { row });
-      });
-      await batch.commit();
+      updates['records'] = rows;
+      await rtdb.ref().update(updates);
     } catch (e) {
       console.warn('Cloud sync error:', e);
     }
@@ -629,11 +619,7 @@ const DB = {
   },
   async wipe() {
     try {
-      const snapshot = await db.collection('parts_records').get();
-      const batch = db.batch();
-      snapshot.docs.forEach(doc => batch.delete(doc.ref));
-      await db.collection('metadata').doc('main').delete();
-      await batch.commit();
+      await rtdb.ref().remove();
     } catch {}
     if (!this.idb) return;
     return new Promise((res) => {
