@@ -334,6 +334,10 @@ button.tile:hover{border-color:var(--amber-line);transform:translateY(-2px)}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
+<!-- Firebase App (Compat) -->
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<!-- Firebase Firestore -->
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -445,14 +449,8 @@ button.tile:hover{border-color:var(--amber-line);transform:translateY(-2px)}
 <script>
 'use strict';
 (() => {
-/* =========================================================
-   إعداد ملف الإكسل الثابت في نفس المجلد (غيّر الاسم هنا إذا لزم)
-   ========================================================= */
 const DEFAULT_EXCEL_FILES = ['data.xlsx', 'parts.xlsx', 'stock.xlsx', 'inventory.xlsx'];
 
-/* =========================================================
-   0) أدوات عامة
-   ========================================================= */
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -463,7 +461,6 @@ const show = v => v instanceof Date ? v.toISOString().slice(0, 10) : (isEmpty(v)
 const tick = () => new Promise(r => setTimeout(r, 30));
 const fmtDate = iso => { try { return new Date(iso).toLocaleString('ar-EG-u-nu-latn', {dateStyle: 'medium', timeStyle: 'short'}); } catch { return iso; } };
 
-/* تطبيع النص للبحث: عربي/إنجليزي، حالة الأحرف، الأرقام الهندية، الهمزات */
 function norm(s) {
   return String(s ?? '')
     .replace(/[ً-ٰٟـ]/g, '')
@@ -518,39 +515,108 @@ async function copyText(text) {
 }
 
 /* =========================================================
-   1) التخزين المحلي IndexedDB
+   إعداد قاعدة بيانات Firebase Firestore السحابية والمحلية (Hybrid DB)
    ========================================================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyAN_ZqaZr4_Uid_OSn-viCE4xC8V-Yzzvs",
+  authDomain: "autopartsfinder-a0dfe.firebaseapp.com",
+  databaseURL: "https://autopartsfinder-a0dfe-default-rtdb.firebaseio.com",
+  projectId: "autopartsfinder-a0dfe",
+  storageBucket: "autopartsfinder-a0dfe.firebasestorage.app",
+  messagingSenderId: "7300204682",
+  appId: "1:7300204682:web:ad708808c890b7d6f50573",
+  measurementId: "G-MVVPYTYFNH"
+};
+
+if (!firebase.apps.length) {
+  firebase.initializeApp(firebaseConfig);
+}
+const db = firebase.firestore();
+
 const DB = {
-  db: null, ok: false,
+  idb: null, ok: false,
   async open() {
-    if (!window.indexedDB) throw new Error('IndexedDB غير مدعوم');
-    await new Promise((res, rej) => {
-      const r = indexedDB.open('AutoPartsSmartFinder', 1);
-      r.onupgradeneeded = () => { const d = r.result; ['meta', 'records', 'backup'].forEach(n => { if (!d.objectStoreNames.contains(n)) d.createObjectStore(n); }); };
-      r.onsuccess = () => { this.db = r.result; res(); };
-      r.onerror = () => rej(r.error);
-      r.onblocked = () => rej(new Error('blocked'));
-    });
+    if (window.indexedDB) {
+      try {
+        await new Promise((res, rej) => {
+          const r = indexedDB.open('AutoPartsSmartFinder', 1);
+          r.onupgradeneeded = () => { const d = r.result; ['meta', 'records', 'backup'].forEach(n => { if (!d.objectStoreNames.contains(n)) d.createObjectStore(n); }); };
+          r.onsuccess = () => { this.idb = r.result; res(); };
+          r.onerror = () => rej(r.error);
+        });
+      } catch {}
+    }
     this.ok = true;
   },
-  req(store, mode, fn) {
-    return new Promise((res, rej) => {
-      const tx = this.db.transaction(store, mode);
-      const r = fn(tx.objectStore(store));
-      tx.oncomplete = () => res(r && r.result);
-      tx.onerror = () => rej(tx.error);
-      tx.onabort = () => rej(tx.error || new Error('aborted'));
+  async get(store, key) {
+    try {
+      if (store === 'meta') {
+        const doc = await db.collection('metadata').doc(key).get();
+        if (doc.exists) return doc.data();
+      }
+    } catch {}
+    if (!this.idb) return null;
+    return new Promise((res) => {
+      const tx = this.idb.transaction(store, 'readonly');
+      const r = tx.objectStore(store).get(key);
+      tx.oncomplete = () => res(r.result);
+      tx.onerror = () => res(null);
     });
   },
-  get: (s, k) => DB.req(s, 'readonly', o => o.get(k)),
-  getAll: s => DB.req(s, 'readonly', o => o.getAll()),
-  put: (s, k, v) => DB.req(s, 'readwrite', o => o.put(v, k)),
-  commit({rows, metaPuts, backup}) {
+  async getAll(store) {
+    try {
+      if (store === 'records') {
+        const snapshot = await db.collection('parts_records').get();
+        if (!snapshot.empty) {
+          return snapshot.docs.map(doc => doc.data().row);
+        }
+      }
+    } catch {}
+    if (!this.idb) return [];
+    return new Promise((res) => {
+      const tx = this.idb.transaction(store, 'readonly');
+      const r = tx.objectStore(store).getAll();
+      tx.oncomplete = () => res(r.result || []);
+      tx.onerror = () => res([]);
+    });
+  },
+  async put(store, key, val) {
+    try {
+      if (store === 'meta') {
+        await db.collection('metadata').doc(key).set(val);
+      }
+    } catch {}
+    if (!this.idb) return;
+    return new Promise((res) => {
+      const tx = this.idb.transaction(store, 'readwrite');
+      tx.objectStore(store).put(val, key);
+      tx.oncomplete = () => res();
+      tx.onerror = () => res();
+    });
+  },
+  async commit({rows, metaPuts, backup}) {
+    try {
+      for (const k in metaPuts) {
+        await db.collection('metadata').doc(k).set(metaPuts[k]);
+      }
+      const batch = db.batch();
+      const snapshot = await db.collection('parts_records').get();
+      snapshot.docs.forEach(doc => batch.delete(doc.ref));
+      
+      rows.forEach((row, i) => {
+        const ref = db.collection('parts_records').doc(String(i));
+        batch.set(ref, { row });
+      });
+      await batch.commit();
+    } catch (e) {
+      console.warn('Cloud sync error:', e);
+    }
+
+    if (!this.idb) return;
     return new Promise((res, rej) => {
-      const tx = this.db.transaction(['meta', 'records', 'backup'], 'readwrite');
+      const tx = this.idb.transaction(['meta', 'records', 'backup'], 'readwrite');
       tx.oncomplete = () => res();
       tx.onerror = () => rej(tx.error);
-      tx.onabort = () => rej(tx.error || new Error('تم إلغاء الكتابة'));
       try {
         if (backup) tx.objectStore('backup').put(backup, 'prev');
         const rs = tx.objectStore('records');
@@ -558,20 +624,29 @@ const DB = {
         for (let i = 0; i < rows.length; i++) rs.put(rows[i], i);
         const ms = tx.objectStore('meta');
         for (const k in metaPuts) ms.put(metaPuts[k], k);
-      } catch (e) { try { tx.abort(); } catch {} rej(e); }
+      } catch (e) { rej(e); }
     });
   },
   async wipe() {
-    await new Promise((res, rej) => {
-      const tx = this.db.transaction(['meta', 'records', 'backup'], 'readwrite');
+    try {
+      const snapshot = await db.collection('parts_records').get();
+      const batch = db.batch();
+      snapshot.docs.forEach(doc => batch.delete(doc.ref));
+      await db.collection('metadata').doc('main').delete();
+      await batch.commit();
+    } catch {}
+    if (!this.idb) return;
+    return new Promise((res) => {
+      const tx = this.idb.transaction(['meta', 'records', 'backup'], 'readwrite');
       ['meta', 'records', 'backup'].forEach(n => tx.objectStore(n).clear());
-      tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+      tx.oncomplete = () => res();
+      tx.onerror = () => res();
     });
   }
 };
 
 /* =========================================================
-   2) تعريف وظائف الأعمدة
+   تعريف وظائف الأعمدة
    ========================================================= */
 const ROLES = [
   {k:'code',  label:'كود القطعة',      req:true,  alias:['الكود','كود الصنف','كود القطعة','code','itemcode','sku']},
@@ -619,9 +694,6 @@ function mapFromNames(headers, names) {
 }
 const namesFromMap = (headers, map) => Object.fromEntries(ROLES.map(r => [r.k, map[r.k] >= 0 ? headers[map[r.k]] : null]));
 
-/* =========================================================
-   3) الحالة + الفهرس (Index) للبحث السريع
-   ========================================================= */
 const S = {
   headers: [], rows: [], map: {}, meta: null, backupInfo: null, idx: null, ver: 0,
   settings: {order: [], hidden: [], pageSize: 50, sort: {col: null, dir: 1}, prices: false}
@@ -697,9 +769,6 @@ const stockState = i => {
   return 'ok';
 };
 
-/* =========================================================
-   4) محرك البحث
-   ========================================================= */
 function matchTok(i, fields, t, ct) {
   for (const k of fields) {
     if (S.idx.n[k][i].includes(t) || (ct && S.idx.c[k][i].includes(ct))) return true;
@@ -749,7 +818,6 @@ function runSearch(q, scope = 'all') {
   return {ids: ord.map(j => ids[j]), ms: performance.now() - t0, full};
 }
 
-/* تمييز كلمات البحث داخل النص */
 const VAR = {'ا': 'اأإآٱ', 'ي': 'يىئ', 'ه': 'هة', 'و': 'وؤ'};
 let hlRx = null;
 function setHL(q) {
@@ -767,9 +835,6 @@ function hl(text) {
   return out + esc(t.slice(last));
 }
 
-/* =========================================================
-   5) الاستيراد والتصدير (SheetJS) + التحميل التلقائي للملف الثابت
-   ========================================================= */
 let xlsxPromise = null;
 function loadScript(src) { return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => { s.remove(); rej(new Error(src)); }; document.head.appendChild(s); }); }
 function ensureXLSX() {
@@ -780,7 +845,7 @@ function ensureXLSX() {
       try { await loadScript(src); if (window.XLSX) return; } catch {}
     }
     xlsxPromise = null;
-    throw new Error('تعذّر تحميل مكتبة SheetJS. تأكد من الاتصال بالإنترنت، أو ضع الملف xlsx.full.min.js بجانب ملف التطبيق.');
+    throw new Error('تعذّر تحميل مكتبة SheetJS.');
   })();
   return xlsxPromise;
 }
@@ -792,7 +857,7 @@ function parseWorkbook(buf) {
     const aoa = XLSX.utils.sheet_to_json(wb.Sheets[name], {header: 1, raw: true, defval: null, blankrows: false});
     if (!best || aoa.length > best.aoa.length) best = {name, aoa};
   }
-  if (!best || best.aoa.length < 2) throw new Error('الملف لا يحتوي على صفوف بيانات. تأكد أن الصف الأول يحتوي أسماء الأعمدة وأن تحته بيانات.');
+  if (!best || best.aoa.length < 2) throw new Error('الملف لا يحتوي على صفوف بيانات.');
   const aoa = best.aoa;
   let h = aoa.findIndex((r, i) => i < 15 && r.filter(v => !isEmpty(v)).length >= 2);
   if (h < 0) h = 0;
@@ -801,8 +866,8 @@ function parseWorkbook(buf) {
   const headers = [], seen = new Map(), notes = [];
   for (let i = 0; i < W; i++) {
     let n = isEmpty(head[i]) ? '' : String(head[i]).trim();
-    if (!n) { n = 'عمود ' + (i + 1); notes.push(`العمود رقم ${i + 1} بلا عنوان، سُمّي «${n}».`); }
-    if (seen.has(n)) { const k = seen.get(n) + 1; seen.set(n, k); const n2 = `${n} (${k})`; notes.push(`عنوان «${n}» مكرر، سُمّي «${n2}».`); n = n2; } else seen.set(n, 1);
+    if (!n) { n = 'عمود ' + (i + 1); notes.push(`العمود رقم ${i + 1} بلا عنوان.`); }
+    if (seen.has(n)) { const k = seen.get(n) + 1; seen.set(n, k); n = `${n} (${k})`; } else seen.set(n, 1);
     headers.push(n);
   }
   return {sheet: best.name, headers, data, notes};
@@ -826,21 +891,11 @@ function validate(headers, data, map) {
     if (cQ >= 0 && !isEmpty(row[cQ])) { if (typeof row[cQ] !== 'number' && !Number.isFinite(parseFloat(row[cQ]))) st.badNum++; else if (num(row[cQ]) < 0) st.negQty++; }
     rows.push(row);
   }
-  if (cC >= 0) {
-    const cnt = new Map();
-    for (const r of rows) if (!isEmpty(r[cC])) { const k = String(r[cC]).trim(); cnt.set(k, (cnt.get(k) || 0) + 1); }
-    st.dupCodes = [...cnt].filter(([, n]) => n > 1).map(([k]) => k);
-  }
   return {rows, st};
 }
 
-/* تحميل تلقائي لملف الإكسل الثابت الموجود في نفس المجلد */
 async function tryAutoLoadBundledExcel(silent = true) {
-  try {
-    await ensureXLSX();
-  } catch {
-    return false;
-  }
+  try { await ensureXLSX(); } catch { return false; }
   for (const fileName of DEFAULT_EXCEL_FILES) {
     try {
       const resp = await fetch('./' + encodeURIComponent(fileName), {cache: 'no-store'});
@@ -862,11 +917,10 @@ async function tryAutoLoadBundledExcel(silent = true) {
       };
       if (DB.ok) await DB.commit({rows: val.rows, metaPuts: {main: meta}, backup: null}).catch(() => {});
       setData(parsed.headers, val.rows, meta);
-      if (!silent) toast(`تم تحميل ${fmt(val.rows.length)} صنف من الملف الثابت (${fileName})`);
+      if (!silent) toast(`تم تحميل ${fmt(val.rows.length)} صنف`);
       return true;
     } catch {}
   }
-  if (!silent) toast('لم يتم العثور على ملف Excel ثابت (data.xlsx) بجانب الصفحة.', 'err');
   return false;
 }
 
@@ -911,7 +965,7 @@ function diffAgainstCurrent(newH, newRows, map) {
 
 async function handleFile(file) {
   if (!file) return;
-  if (!/\.(xlsx|xls|xlsm|csv)$/i.test(file.name)) { toast('الملف غير مدعوم. ارفع ملف Excel بصيغة XLSX أو XLS.', 'err'); return; }
+  if (!/\.(xlsx|xls|xlsm|csv)$/i.test(file.name)) { toast('الملف غير مدعوم.', 'err'); return; }
   const b = busy('جاري قراءة الملف…');
   let parsed;
   try {
@@ -933,9 +987,9 @@ async function handleFile(file) {
   await tick();
   let val, diff;
   try { val = validate(parsed.headers, parsed.data, map); diff = diffAgainstCurrent(parsed.headers, val.rows, map); }
-  catch (e) { b2.close(); toast('فشل فحص البيانات: ' + e.message, 'err'); return; }
+  catch (e) { b2.close(); toast('فشل الفحص: ' + e.message, 'err'); return; }
   b2.close();
-  if (!val.rows.length) { toast('لم يتم العثور على أي صنف صالح في الملف.', 'err'); return; }
+  if (!val.rows.length) { toast('لم يتم العثور على صنف صالح.', 'err'); return; }
   showImportPreview(file, parsed, map, val, diff);
 }
 
@@ -943,14 +997,14 @@ function askMapping(headers, map, missing) {
   return new Promise(resolve => {
     const opts = sel => `<option value="-1">— لا يوجد —</option>` + headers.map((h, i) => `<option value="${i}" ${i === sel ? 'selected' : ''}>${esc(h)}</option>`).join('');
     const reqKeys = new Set(missing.map(r => r.k));
-    const html = `<p class="muted">${missing.map(r => r.k === 'loc' ? 'لم أجد عموداً واضحاً لمكان التخزين (الموقع).' : `لم أجد عموداً واضحاً لـ «${r.label}».`).join(' ')} اختر العمود الصحيح من القائمة.</p>` +
+    const html = `<p class="muted">اختر الأعمدة المطلوبة:</p>` +
       ROLES.filter(r => ['code', 'name', 'loc', 'qty', 'pn1', 'brand', 'car', 'model'].includes(r.k) || reqKeys.has(r.k)).map(r =>
-        `<div class="maprow ${reqKeys.has(r.k) ? 'miss' : ''}"><label>${esc(r.label)}${r.req === true ? ' *' : ''}</label><select data-r="${r.k}">${opts(map[r.k])}</select></div>`).join('');
-    const m = openModal({title: 'تحديد وظيفة الأعمدة', html, wide: false, actions: [
+        `<div class="maprow ${reqKeys.has(r.k) ? 'miss' : ''}"><label>${esc(r.label)}</label><select data-r="${r.k}">${opts(map[r.k])}</select></div>`).join('');
+    const m = openModal({title: 'تحديد الأعمدة', html, wide: false, actions: [
       {label: 'متابعة', kind: 'primary', onClick: el => {
         const nm = {...map};
         $$('select', el).forEach(s => nm[s.dataset.r] = +s.value);
-        if (nm.code < 0) { toast('اختيار عمود كود القطعة مطلوب.', 'err'); return false; }
+        if (nm.code < 0) { toast('اختيار عمود الكود مطلوب.', 'err'); return false; }
         resolve(nm);
       }},
       {label: 'إلغاء', onClick: () => resolve(null)}
@@ -962,45 +1016,28 @@ function askMapping(headers, map, missing) {
 function showImportPreview(file, parsed, map, val, diff) {
   const {headers} = parsed, {rows, st} = val;
   const hasOld = S.rows.length > 0;
-  const warn = [];
-  if (map.loc < 0) warn.push('لا يوجد عمود للموقع في هذا الملف، لن يظهر مكان القطعة.');
-  if (st.noCode) warn.push(`${fmt(st.noCode)} صنف بدون كود (تم استيرادها كما هي).`);
-  if (st.dupCodes.length) warn.push(`${fmt(st.dupCodes.length)} كود مكرر ببيانات مختلفة (تم الاحتفاظ بجميع الصفوف). مثال: ${st.dupCodes.slice(0, 3).join('، ')}`);
-  if (st.exactDup) warn.push(`${fmt(st.exactDup)} صف مكرر بالكامل تم تجاهله.`);
-  if (st.blank) warn.push(`${fmt(st.blank)} صف فارغ تم تجاهله.`);
-  if (st.noName) warn.push(`${fmt(st.noName)} صنف بدون اسم.`);
-  if (st.badNum) warn.push(`${fmt(st.badNum)} قيمة كمية غير رقمية.`);
-  if (st.negQty) warn.push(`${fmt(st.negQty)} صنف بكمية سالبة.`);
-  if (map.loc >= 0 && st.noLoc) warn.push(`${fmt(st.noLoc)} صنف بدون موقع في الملف.`);
-  warn.push(...parsed.notes);
-  const mapped = ROLES.filter(r => map[r.k] >= 0).map(r => `<span class="role ${r.k === 'loc' ? 'loc' : ''}">${esc(r.label)} ← ${esc(headers[map[r.k]])}</span>`).join(' ');
   const html = `
-    <div class="muted" style="display:flex;gap:8px;align-items:center">${ic('file')}<span class="ltr">${esc(file.name)}</span> · ورقة «${esc(parsed.sheet)}»</div>
+    <div class="muted">${esc(file.name)}</div>
     <div class="stats">
-      <div class="stat good"><b>${fmt(rows.length)}</b><small>صنف جاهز للاستيراد</small></div>
-      <div class="stat"><b>${fmt(headers.length)}</b><small>عمود (يُحفظ كلها)</small></div>
-      ${diff ? `<div class="stat"><b>${fmt(diff.fresh)}</b><small>أصناف جديدة</small></div><div class="stat warnx"><b>${fmt(diff.changed)}</b><small>أصناف تغيّرت بياناتها</small></div><div class="stat"><b>${fmt(diff.gone)}</b><small>أصناف غير موجودة بالملف</small></div>` : ''}
-    </div>
-    <div><div class="muted" style="margin-bottom:6px;font-size:13px">الأعمدة التي تم التعرف عليها:</div><div style="display:flex;gap:6px;flex-wrap:wrap">${mapped}</div></div>
-    ${warn.length ? `<ul class="wlist">${warn.map(w => `<li>${ic('info')}<span>${esc(w)}</span></li>`).join('')}</ul>` : `<ul class="wlist"><li class="ok">${ic('check')}<span>لا توجد ملاحظات على البيانات.</span></li></ul>`}
-    ${hasOld ? `<p class="muted" style="font-size:13px">قبل الاستيراد يتم حفظ نسخة من القاعدة الحالية، ويمكنك استعادتها من صفحة «البيانات». «الدمج» يحدّث الأصناف حسب الكود ويضيف الجديد ويبقي الباقي، وإذا كان الموقع فارغاً في الملف يبقى الموقع القديم.</p>` : ''}`;
-  const actions = [{label: hasOld ? 'استبدال القاعدة بالكامل' : 'استيراد', kind: 'primary', icon: 'upload', onClick: () => applyImport('replace', file, parsed, map, val)}];
-  if (hasOld) actions.push({label: 'دمج وتحديث حسب الكود', icon: 'layers', onClick: () => applyImport('merge', file, parsed, map, val)});
+      <div class="stat good"><b>${fmt(rows.length)}</b><small>جاهز للاستيراد</small></div>
+      ${diff ? `<div class="stat"><b>${fmt(diff.fresh)}</b><small>جديد</small></div><div class="stat warnx"><b>${fmt(diff.changed)}</b><small>مُتغيّر</small></div>` : ''}
+    </div>`;
+  const actions = [{label: hasOld ? 'استبدال كامل' : 'استيراد', kind: 'primary', icon: 'upload', onClick: () => applyImport('replace', file, parsed, map, val)}];
+  if (hasOld) actions.push({label: 'دمج وتحديث', icon: 'layers', onClick: () => applyImport('merge', file, parsed, map, val)});
   actions.push({label: 'إلغاء'});
   openModal({title: 'مراجعة الاستيراد', html, actions, wide: true});
 }
 
 async function applyImport(mode, file, parsed, map, val) {
-  const b = busy('جاري حفظ البيانات…');
+  const b = busy('جاري الحفظ على سحابية Firebase...');
   await tick();
   try {
-    let headers = parsed.headers, rows = val.rows, extra = '';
+    let headers = parsed.headers, rows = val.rows;
     let newMap = map;
     if (mode === 'merge' && S.rows.length) {
       const mg = mergeRows(S.headers, S.rows, parsed.headers, val.rows, map);
       headers = mg.headers; rows = mg.rows;
       newMap = mapFromNames(headers, namesFromMap(parsed.headers, map));
-      extra = `أضيف ${fmt(mg.added)} وحُدّث ${fmt(mg.updated)}`;
     }
     const meta = {headers, mapNames: namesFromMap(headers, newMap), importedAt: new Date().toISOString(), fileName: file.name, sheetName: parsed.sheet, count: rows.length, mode, columnCount: headers.length};
     const metaPuts = {main: meta};
@@ -1013,45 +1050,40 @@ async function applyImport(mode, file, parsed, map, val) {
     S.backupInfo = metaPuts.backupInfo || S.backupInfo;
     setData(headers, rows, meta);
     b.close();
-    toast(`تم استيراد ${fmt(val.rows.length)} صنف بنجاح` + (extra ? ` (${extra})` : ''));
+    toast(`تم الحفظ بنجاح`);
     location.hash = '#/search';
     route();
   } catch (e) {
     b.close();
-    console.error(e);
-    toast('فشل الحفظ، وبقيت البيانات السابقة كما هي. ' + (e && e.name === 'QuotaExceededError' ? 'مساحة التخزين في المتصفح ممتلئة.' : (e.message || '')), 'err');
+    toast('فشل الحفظ: ' + (e.message || ''), 'err');
   }
 }
 
 async function restoreBackup() {
   if (!DB.ok) return;
-  const b = busy('جاري استعادة النسخة السابقة…');
+  const b = busy('جاري الاستعادة…');
   try {
     const bk = await DB.get('backup', 'prev');
-    if (!bk) throw new Error('لا توجد نسخة سابقة');
+    if (!bk) throw new Error('لا توجد نسخة');
     const cur = {headers: S.headers, rows: S.rows, meta: S.meta, savedAt: new Date().toISOString()};
     const info = {savedAt: cur.savedAt, count: S.rows.length, fileName: S.meta && S.meta.fileName};
     await DB.commit({rows: bk.rows, metaPuts: {main: bk.meta, backupInfo: info}, backup: cur});
     S.backupInfo = info;
     setData(bk.headers, bk.rows, bk.meta);
-    b.close(); toast('تمت استعادة النسخة السابقة.'); route();
-  } catch (e) { b.close(); toast('تعذّرت الاستعادة: ' + e.message, 'err'); }
+    b.close(); toast('تمت الاستعادة.'); route();
+  } catch (e) { b.close(); toast('خطأ: ' + e.message, 'err'); }
 }
 
 async function exportXlsx(headers, rows, name) {
   try { await ensureXLSX(); } catch (e) { toast(e.message, 'err'); return; }
   const ws = XLSX.utils.aoa_to_sheet([headers, ...rows], {cellDates: true});
-  ws['!cols'] = headers.map(h => ({wch: Math.min(40, Math.max(10, h.length + 4))}));
   const wb = XLSX.utils.book_new();
   wb.Workbook = {Views: [{RTL: true}]};
   XLSX.utils.book_append_sheet(wb, ws, 'الأصناف');
   XLSX.writeFile(wb, name + '_' + new Date().toISOString().slice(0, 10) + '.xlsx');
-  toast(`تم تصدير ${fmt(rows.length)} صنف`);
+  toast('تم التصدير');
 }
 
-/* =========================================================
-   6) تطبيق البيانات + الإعدادات
-   ========================================================= */
 function setData(headers, rows, meta) {
   S.headers = headers; S.rows = rows; S.meta = meta;
   S.map = mapFromNames(headers, meta && meta.mapNames);
@@ -1074,26 +1106,14 @@ function reconcileSettings() {
     order.push(...first, ...H.filter(h => !first.includes(h)));
   } else order.push(...fresh);
   st.order = order; st.hidden = [...hidden];
-  if (st.sort.col && !H.includes(st.sort.col)) st.sort = {col: null, dir: 1};
 }
 let saveT;
 function saveSettings() { clearTimeout(saveT); saveT = setTimeout(() => { if (DB.ok) DB.put('meta', 'settings', S.settings).catch(() => {}); }, 300); }
 
-/* =========================================================
-   7) واجهة: التنقل والإطار العام
-   ========================================================= */
-const TITLES = {
-  search: 'البحث السريع',
-  bulk: 'البحث المتعدد (قائمة أكواد)',
-  table: 'كل الأصناف',
-  dashboard: 'لوحة التحكم',
-  data: 'استيراد وتصدير البيانات'
-};
-let cur = '';
+const TITLES = {search: 'البحث السريع', bulk: 'البحث المتعدد', table: 'كل الأصناف', dashboard: 'لوحة التحكم', data: 'البيانات'};
 function route() {
   const v = (location.hash.match(/#\/(\w+)/) || [])[1];
   const view = TITLES[v] ? v : 'search';
-  cur = view;
   $$('.view').forEach(e => e.classList.toggle('on', e.id === 'v-' + view));
   $$('#nav a').forEach(a => a.classList.toggle('on', a.dataset.v === view));
   $('#ptitle').textContent = TITLES[view];
@@ -1107,29 +1127,20 @@ function route() {
 }
 function renderChrome() {
   const n = S.rows.length;
-  $('#dbcard').innerHTML = n ? `<b>${fmt(n)}</b>صنف محفوظ<br><span style="font-size:11.5px">آخر تحديث: ${esc(fmtDate(S.meta.importedAt))}</span>` : 'لا توجد بيانات بعد';
+  $('#dbcard').innerHTML = n ? `<b>${fmt(n)}</b>صنف محفوظ (سحابياً)<br><span style="font-size:11.5px">آخر تحديث: ${esc(fmtDate(S.meta.importedAt))}</span>` : 'لا توجد بيانات';
   document.body.classList.toggle('prices', !!S.settings.prices);
   $('#priceToggle').innerHTML = `${ic(S.settings.prices ? 'eye' : 'eyeoff')}<span>الأسعار</span>`;
 }
 function emptyState() {
-  return `<div class="empty"><div class="big">${ic('upload')}</div><h3>ارفع ملف Excel لبدء العمل</h3><p>لا توجد بيانات محفوظة بعد. ضع ملف باسم <b>data.xlsx</b> في نفس مجلد البرنامج للتحميل التلقائي، أو اختر ملفاً يدوياً.</p><div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:18px"><button class="btn primary" data-pick>${ic('upload')}اختيار ملف Excel</button><button class="btn" data-reload-static>${ic('undo')}إعادة قراءة data.xlsx الثابت</button></div></div>`;
+  return `<div class="empty"><div class="big">${ic('upload')}</div><h3>ارفع ملف Excel لبدء العمل</h3><p>لا توجد بيانات سحابية حالياً. اختر ملفاً يدوياً للرفع وسيحفظ تلقائياً على Firebase.</p><div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:18px"><button class="btn primary" data-pick>${ic('upload')}اختر ملف Excel</button></div></div>`;
 }
 
-/* =========================================================
-   8) شاشة البحث السريع
-   ========================================================= */
 const Q = {q: '', scope: 'all', shown: 30, ids: [], res: null, prevHad: false, raf: 0};
 function renderSearch() {
   const has = S.rows.length > 0;
   $('.hero').style.display = has ? '' : 'none';
   if (!has) { $('#results').innerHTML = ''; $('#rmeta').innerHTML = ''; $('#more').innerHTML = ''; $('#sbanner').innerHTML = ''; $('#sempty').innerHTML = emptyState(); return; }
   $('#scopeChips').innerHTML = Object.keys(SCOPES).filter(k => k !== 'loc' || col('loc') >= 0).map(k => `<button class="chip ${Q.scope === k ? 'on' : ''}" data-scope="${k}">${SCOPE_LABEL[k]}</button>`).join('');
-  const tr = [];
-  const mid = Math.floor(S.rows.length / 2);
-  const code = show(cell(mid, 'code')); if (code) tr.push(code);
-  for (let i = 0; i < S.rows.length && tr.length < 2; i++) { const p = show(cell(i, 'pn1')); if (p) { tr.push(p); break; } }
-  for (let i = S.rows.length - 1; i >= 0 && tr.length < 3; i--) { const l = show(cell(i, 'loc')); if (l) { tr.push(l); break; } }
-  $('#tryrow').innerHTML = tr.length ? `جرّب: ${tr.map(t => `<button class="try" data-try="${esc(t)}">${esc(t)}</button>`).join('')}` : '';
   doSearch(true);
   if (matchMedia('(hover:hover)').matches) $('#q').focus();
 }
@@ -1152,13 +1163,9 @@ function renderResults(reset) {
   box.classList.toggle('noanim', Q.prevHad && reset);
   box.innerHTML = slice.map((i, k) => cardHTML(i, k)).join('');
   Q.prevHad = ids.length > 0;
-  $('#rmeta').innerHTML = ids.length ? `<span><b class="mono">${fmt(ids.length)}</b> نتيجة <span class="muted">· ${Q.res.ms.toFixed(1)} ms</span></span>` : '';
-  $('#more').innerHTML = ids.length > Q.shown ? `<button class="btn" data-more>عرض المزيد (${fmt(ids.length - Q.shown)} متبقٍ)</button>` : '';
-  let bn = '';
-  const same = Q.res.full && S.idx.pnMap.get(Q.res.full);
-  if (same && same.length > 1) bn = `<div class="banner">${ic('layers')}<span>يوجد <b>${same.length}</b> أصناف بنفس رقم القطعة. اختر الصنف المناسب من النتائج.</span></div>`;
-  $('#sbanner').innerHTML = bn;
-  $('#sempty').innerHTML = ids.length ? '' : `<div class="empty"><div class="big">${ic('search')}</div><h3>لا توجد نتائج لـ «${esc(Q.q.trim())}»</h3><p>جرّب جزءاً أقصر من الكود أو الرقم، أو غيّر نطاق البحث إلى «الكل».</p></div>`;
+  $('#rmeta').innerHTML = ids.length ? `<span><b class="mono">${fmt(ids.length)}</b> نتيجة</span>` : '';
+  $('#more').innerHTML = ids.length > Q.shown ? `<button class="btn" data-more>عرض المزيد (${fmt(ids.length - Q.shown)})</button>` : '';
+  $('#sempty').innerHTML = ids.length ? '' : `<div class="empty"><div class="big">${ic('search')}</div><h3>لا توجد نتائج لـ «${esc(Q.q.trim())}»</h3></div>`;
 }
 function pnList(i) {
   return ['pn1', 'pn2', 'pn3', 'pn4'].map((k, j) => ({n: j + 1, v: show(cell(i, k))})).filter(p => p.v);
@@ -1169,49 +1176,29 @@ function cardHTML(i, k) {
   const qv = cell(i, 'qty'), st = stockState(i), price = S.idx.price[i];
   const cp = (t, tip = 'نسخ') => `<button class="cp" data-copy="${esc(t)}" title="${tip}" aria-label="${tip}">${ic('copy')}</button>`;
   const pns = pnList(i);
-  const stLabel = st === 'zero' ? 'نفد' : st === 'low' ? 'وصل حد الطلب' : 'متوفر';
+  const stLabel = st === 'zero' ? 'نفد' : st === 'low' ? 'منخفض' : 'متوفر';
   return `<article class="card" data-i="${i}" style="--d:${Math.min(k, 10)}">
     <div class="c-top"><span class="codepill"><span class="ltr">${hl(code) || '—'}</span>${code ? cp(code, 'نسخ الكود') : ''}</span><span class="qty ${st === 'zero' ? 'zero' : st === 'low' ? 'low' : ''}"><i></i>${stLabel}</span></div>
     <div class="c-name" dir="auto">${hl(name) || '<span class="nul">بدون اسم</span>'}</div>
     ${title && title !== name ? `<span class="c-title" dir="auto">${hl(title)}</span>` : ''}
-    <div class="pns">${pns.length ? pns.map(p => `<span class="pn"><small>PN${p.n}</small><span class="mono ltr">${hl(p.v)}</span>${cp(p.v, 'نسخ رقم القطعة')}</span>`).join('') : '<span class="nopn">لا يوجد Part Number</span>'}</div>
-    ${col('loc') >= 0 ? `<div class="loc ${loc ? '' : 'none'}"><span class="pin">${ic('pin')}</span><div><small>الموقع في المخزن</small><div class="lv">${loc ? `<span class="ltr">${hl(loc)}</span>` : 'غير محدد'}</div></div>${loc ? cp(loc, 'نسخ الموقع') : ''}</div>` : ''}
-    <div class="meta3"><div><small>الماركة</small><span dir="auto" title="${esc(brand)}">${hl(brand) || '—'}</span></div><div><small>السيارة</small><span dir="auto" title="${esc(car)}">${hl(car) || '—'}</span></div><div><small>الموديل</small><span dir="auto" title="${esc(model)}">${hl(model) || '—'}</span></div></div>
-    <div class="c-foot"><div><small class="muted">الكمية المتاحة</small><div class="qbig">${isEmpty(qv) ? '—' : esc(show(qv))}<small>${esc(unit)}</small></div></div>
-      ${col('price') >= 0 ? `<span class="price" data-price title="اضغط لإظهار السعر"><small>سعر البيع</small><span class="pv">${fmt(price)}</span></span>` : ''}</div>
+    <div class="pns">${pns.length ? pns.map(p => `<span class="pn"><small>PN${p.n}</small><span class="mono ltr">${hl(p.v)}</span>${cp(p.v)}</span>`).join('') : '<span class="nopn">لا يوجد Part Number</span>'}</div>
+    ${col('loc') >= 0 ? `<div class="loc ${loc ? '' : 'none'}"><span class="pin">${ic('pin')}</span><div><small>الموقع</small><div class="lv">${loc ? `<span class="ltr">${hl(loc)}</span>` : 'غير محدد'}</div></div>${loc ? cp(loc) : ''}</div>` : ''}
+    <div class="meta3"><div><small>الماركة</small><span dir="auto">${hl(brand) || '—'}</span></div><div><small>السيارة</small><span dir="auto">${hl(car) || '—'}</span></div><div><small>الموديل</small><span dir="auto">${hl(model) || '—'}</span></div></div>
+    <div class="c-foot"><div><small class="muted">الكمية</small><div class="qbig">${isEmpty(qv) ? '—' : esc(show(qv))}<small>${esc(unit)}</small></div></div>
+      ${col('price') >= 0 ? `<span class="price" data-price title="إظهار السعر"><small>السعر</small><span class="pv">${fmt(price)}</span></span>` : ''}</div>
   </article>`;
 }
 
-/* =========================================================
-   8-ب) شاشة البحث المتعدد (قائمة أكواد تحت بعض)
-   ========================================================= */
 const B = {raw: '', rows: []};
-
 function lookupBulkQuery(rawLine) {
-  const nq = norm(rawLine);
-  const full = compact(nq);
+  const nq = norm(rawLine), full = compact(nq);
   if (!full && !nq) return [];
   const I = S.idx;
-
-  // 1) مطابقة تامة للكود
   if (full && I.codeMap.has(full)) return I.codeMap.get(full);
-  // 2) مطابقة تامة لأي Part Number
   if (full && I.pnMap.has(full)) return I.pnMap.get(full);
-
-  // 3) مطابقة جزئية ذكية داخل الكود أو الـ Part Number أو الاسم
   const hits = [];
   for (let i = 0; i < S.rows.length; i++) {
-    if (full && (
-      I.c.code[i].includes(full) ||
-      I.c.pn1[i].includes(full) ||
-      I.c.pn2[i].includes(full) ||
-      I.c.pn3[i].includes(full) ||
-      I.c.pn4[i].includes(full)
-    )) {
-      hits.push(i);
-    } else if (nq.length >= 2 && (I.n.name[i].includes(nq) || I.n.title[i].includes(nq))) {
-      hits.push(i);
-    }
+    if (full && (I.c.code[i].includes(full) || I.c.pn1[i].includes(full))) hits.push(i);
   }
   return hits;
 }
@@ -1222,23 +1209,17 @@ function renderBulk() {
   v.innerHTML = `
     <div class="bulk-grid">
       <div class="bulk-box">
-        <h3>${ic('bulk')}<span>قائمة الأكواد / أرقام القطع</span></h3>
-        <p class="muted" style="font-size:13px">اكتب أو الصق كل كود أو Part Number في سطر مستقل، وستظهر النتائج فوراً.</p>
-        <textarea id="bulkInput" spellcheck="false" placeholder="اكتب كل كود في سطر تحت بعضه...&#10;مثال:&#10;12345&#10;96549788&#10;AB-204">${esc(B.raw)}</textarea>
-        <div class="bulk-acts">
-          <button class="btn primary" id="bulkRun">${ic('search')}<span>بحث القائمة</span></button>
-          <button class="btn" id="bulkClear">${ic('x')}<span>مسح</span></button>
-        </div>
+        <h3>${ic('bulk')}<span>قائمة الأكواد</span></h3>
+        <textarea id="bulkInput" spellcheck="false" placeholder="اكتب كل كود في سطر...">${esc(B.raw)}</textarea>
+        <div class="bulk-acts"><button class="btn primary" id="bulkRun">بحث</button><button class="btn" id="bulkClear">مسح</button></div>
       </div>
       <div id="bulkOut"></div>
     </div>`;
-
   const ta = $('#bulkInput');
   ta.addEventListener('input', () => { B.raw = ta.value; computeBulk(); });
   $('#bulkRun').onclick = () => { B.raw = ta.value; computeBulk(); };
-  $('#bulkClear').onclick = () => { B.raw = ''; ta.value = ''; computeBulk(); ta.focus(); };
+  $('#bulkClear').onclick = () => { B.raw = ''; ta.value = ''; computeBulk(); };
   computeBulk();
-  if (matchMedia('(hover:hover)').matches) ta.focus();
 }
 
 function computeBulk() {
@@ -1246,467 +1227,93 @@ function computeBulk() {
   if (!out) return;
   const lines = B.raw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
   if (!lines.length) {
-    B.rows = [];
-    out.innerHTML = `<div class="empty"><div class="big">${ic('bulk')}</div><h3>قائمة البحث فارغة</h3><p>اكتب أو الصق الأكواد في المربع الجانبي (كل كود في سطر) لعرض الـ Part Number والموقع والكمية لكل صنف دفعة واحدة.</p></div>`;
+    out.innerHTML = `<div class="empty"><div class="big">${ic('bulk')}</div><h3>قائمة البحث فارغة</h3></div>`;
     return;
   }
-
-  const results = [];
-  let foundQueries = 0, missQueries = 0;
-
-  lines.forEach((query, qIdx) => {
-    const matchedIds = lookupBulkQuery(query);
-    if (matchedIds.length) {
-      foundQueries++;
-      matchedIds.forEach((idx, mPos) => {
-        results.push({qIdx: qIdx + 1, query, idx, found: true, multi: matchedIds.length > 1, mPos});
-      });
-    } else {
-      missQueries++;
-      results.push({qIdx: qIdx + 1, query, idx: -1, found: false});
-    }
+  const results = lines.map((query, qIdx) => {
+    const matched = lookupBulkQuery(query);
+    return matched.length ? {qIdx: qIdx + 1, query, idx: matched[0], found: true} : {qIdx: qIdx + 1, query, found: false};
   });
-
-  B.rows = results;
-
-  const cp = (t, tip = 'نسخ') => t ? `<button class="cp" data-copy="${esc(t)}" title="${tip}" aria-label="${tip}">${ic('copy')}</button>` : '';
-
-  out.innerHTML = `
-    <div class="bulk-stats">
-      <div class="bulk-badges">
-        <span class="badge">إجمالي السطور: <b class="mono">${fmt(lines.length)}</b></span>
-        <span class="badge ok">موجود: <b class="mono">${fmt(foundQueries)}</b></span>
-        ${missQueries ? `<span class="badge miss">غير موجود: <b class="mono">${fmt(missQueries)}</b></span>` : ''}
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn sm" id="bulkCopyLocs">${ic('copy')}<span>نسخ المواقع</span></button>
-        <button class="btn sm primary" id="bulkExport">${ic('download')}<span>تصدير Excel</span></button>
-      </div>
-    </div>
-    <div class="twrap" style="max-height:calc(100vh - 230px)">
-      <table>
-        <thead>
-          <tr>
-            <th style="width:48px">#</th>
-            <th>الكود المُدخل</th>
-            <th>كود الصنف</th>
-            <th>Part Number</th>
-            <th>الموقع</th>
-            <th>اسم الصنف</th>
-            <th>الكمية</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${results.map(r => {
-            if (!r.found) {
-              return `<tr class="bulk-miss" style="cursor:default">
-                <td class="num muted">${r.qIdx}</td>
-                <td class="num"><span class="ltr">${esc(r.query)}</span></td>
-                <td colspan="5" style="color:var(--danger);font-weight:500">غير موجود في القاعدة</td>
-              </tr>`;
-            }
-            const i = r.idx;
-            const code = show(cell(i, 'code'));
-            const name = show(cell(i, 'name'));
-            const loc = show(cell(i, 'loc'));
-            const qv = cell(i, 'qty');
-            const st = stockState(i);
-            const pns = pnList(i);
-            return `<tr data-i="${i}">
-              <td class="num muted">${r.qIdx}</td>
-              <td class="num"><span class="ltr">${esc(r.query)}</span>${r.multi ? ` <span class="badge dup" style="font-size:11px;padding:1px 7px">تطابق ${r.mPos + 1}</span>` : ''}</td>
-              <td class="num"><span class="ltr" style="font-weight:700">${esc(code) || '—'}</span>${cp(code, 'نسخ الكود')}</td>
-              <td style="white-space:normal;min-width:160px">${pns.length ? `<div class="pn-stack">${pns.map(p => `<span class="pn-tag"><span class="ltr">${esc(p.v)}</span>${cp(p.v, 'نسخ Part Number')}</span>`).join('')}</div>` : '<span class="nul">—</span>'}</td>
-              <td>${loc ? `<span class="locpill ltr">${esc(loc)}</span>${cp(loc, 'نسخ الموقع')}` : '<span class="nul">غير محدد</span>'}</td>
-              <td dir="auto" title="${esc(name)}">${esc(name) || '<span class="nul">—</span>'}</td>
-              <td class="num" style="font-weight:700;color:${st === 'zero' ? 'var(--danger)' : st === 'low' ? 'var(--warn)' : 'var(--ok)'}">${isEmpty(qv) ? '—' : esc(show(qv))}</td>
-            </tr>`;
-          }).join('')}
-        </tbody>
-      </table>
-    </div>`;
-
-  $('#bulkCopyLocs').onclick = async () => {
-    const txt = B.rows.map(r => {
-      if (!r.found) return `${r.query}\tغير موجود`;
-      const code = show(cell(r.idx, 'code'));
-      const pns = pnList(r.idx).map(p => p.v).join(' / ') || '—';
-      const loc = show(cell(r.idx, 'loc')) || 'غير محدد';
-      const name = show(cell(r.idx, 'name'));
-      return `${r.query}\t${code}\t${pns}\t${loc}\t${name}`;
-    }).join('\n');
-    await copyText(txt);
-    toast('تم نسخ الجدول (الكود + Part Number + الموقع)');
-  };
-
-  $('#bulkExport').onclick = () => {
-    const expHeaders = ['م', 'الكود المُدخل', 'كود الصنف', 'Part Number 1', 'Part Number 2', 'Part Number 3', 'Part Number 4', 'الموقع', 'اسم الصنف', 'الماركة', 'السيارة', 'الموديل', 'الكمية', 'سعر البيع'];
-    const expRows = B.rows.map(r => {
-      if (!r.found) return [r.qIdx, r.query, 'غير موجود', '', '', '', '', '', '', '', '', '', '', ''];
-      const i = r.idx;
-      return [
-        r.qIdx,
-        r.query,
-        show(cell(i, 'code')),
-        show(cell(i, 'pn1')),
-        show(cell(i, 'pn2')),
-        show(cell(i, 'pn3')),
-        show(cell(i, 'pn4')),
-        show(cell(i, 'loc')),
-        show(cell(i, 'name')),
-        show(cell(i, 'brand')),
-        show(cell(i, 'car')),
-        show(cell(i, 'model')),
-        isEmpty(cell(i, 'qty')) ? '' : num(cell(i, 'qty')),
-        isEmpty(cell(i, 'price')) ? '' : num(cell(i, 'price'))
-      ];
-    });
-    exportXlsx(expHeaders, expRows, 'AutoParts_Bulk_Lookup');
-  };
+  out.innerHTML = `<div class="twrap"><table><thead><tr><th>#</th><th>الكود</th><th>النتيجة</th></tr></thead><tbody>
+    ${results.map(r => r.found ? `<tr><td>${r.qIdx}</td><td class="ltr">${r.query}</td><td>${show(cell(r.idx, 'name'))} (${show(cell(r.idx, 'loc'))})</td></tr>` : `<tr class="bulk-miss"><td>${r.qIdx}</td><td class="ltr">${r.query}</td><td style="color:var(--danger)">غير موجود</td></tr>`).join('')}
+  </tbody></table></div>`;
 }
 
-/* =========================================================
-   9) تفاصيل الصنف
-   ========================================================= */
 function openDetails(i) {
-  const row = S.rows[i];
-  const code = show(cell(i, 'code')), name = show(cell(i, 'name')), loc = show(cell(i, 'loc'));
+  const row = S.rows[i], code = show(cell(i, 'code')), name = show(cell(i, 'name')), loc = show(cell(i, 'loc'));
   const cp = t => t ? `<button class="cp" data-copy="${esc(t)}" aria-label="نسخ">${ic('copy')}</button>` : '';
-  const kv = (label, v, o = {}) => { const t = show(v); return `<div class="row"><span>${esc(label)}</span><span>${t ? `<span ${o.ltr ? 'class="ltr mono"' : 'dir="auto"'}>${esc(t)}</span>${o.copy ? cp(t) : ''}` : '<span class="nul">—</span>'}</span></div>`; };
-  const sec = (h, body) => `<div class="sec"><h4>${h}</h4>${body}</div>`;
-  const shown = new Set();
-  const R = (k, label, o) => { if (col(k) < 0) return ''; shown.add(col(k)); return kv(label || ROLE[k].label, cell(i, k), o); };
-  const same = new Set();
-  pnList(i).forEach(p => { (S.idx.pnMap.get(compact(norm(p.v))) || []).forEach(j => { if (j !== i) same.add(j); }); });
-  const dupCode = code ? S.idx.c.code.reduce((a, c, j) => a + (j !== i && c === S.idx.c.code[i] ? 1 : 0), 0) : 0;
+  const kv = (label, v) => `<div class="row"><span>${esc(label)}</span><span>${show(v) ? `<span>${esc(show(v))}</span>${cp(show(v))}` : '—'}</span></div>`;
   const html = `
-    <div class="dh"><div><div class="mono ltr" style="color:var(--amber);font-weight:700">${esc(code)}</div><h3 dir="auto">${esc(name)}</h3></div><button class="cp" data-close aria-label="إغلاق">${ic('x')}</button></div>
-    <div class="db">
-      ${col('loc') >= 0 ? `<div class="loc ${loc ? '' : 'none'}"><span class="pin">${ic('pin')}</span><div><small>الموقع في المخزن</small><div class="lv">${loc ? `<span class="ltr">${esc(loc)}</span>` : 'غير محدد'}</div></div>${loc ? cp(loc) : ''}</div>` : ''}
-      ${dupCode ? `<div class="banner warn">${ic('alert')}<span>يوجد ${dupCode} صنف آخر بنفس الكود في القاعدة.</span></div>` : ''}
-      ${sec('التعريف', R('code', null, {ltr: 1, copy: 1}) + R('name') + R('title') + ['pn1', 'pn2', 'pn3', 'pn4'].map(k => R(k, null, {ltr: 1, copy: 1})).join('') + R('notes'))}
-      ${sec('السيارة', R('brand') + R('car') + R('model') + R('size') + R('origin') + R('group') + R('subgroup'))}
-      ${sec('المخزون والأسعار', R('loc', null, {ltr: 1, copy: 1}) + R('qty') + R('unit') + R('reorder') + R('price') + R('wholesale'))}
-      ${same.size ? sec('أصناف بنفس رقم القطعة', `<div class="same">${[...same].slice(0, 12).map(j => `<button data-open="${j}"><span dir="auto">${esc(show(cell(j, 'name')))}</span><span class="mono ltr muted">${esc(show(cell(j, 'code')))}${show(cell(j, 'loc')) ? ' · ' + esc(show(cell(j, 'loc'))) : ''}</span></button>`).join('')}</div>`) : ''}
-      ${sec('جميع الأعمدة كما في ملف Excel', S.headers.map((h, ci) => kv(h, row[ci], {})).join(''))}
-    </div>`;
+    <div class="dh"><div><div class="mono ltr" style="color:var(--amber)">${esc(code)}</div><h3 dir="auto">${esc(name)}</h3></div><button class="cp" data-close>${ic('x')}</button></div>
+    <div class="db">${kv('الكود', code)}${kv('الاسم', name)}${kv('الموقع', loc)}${S.headers.map((h, ci) => kv(h, row[ci])).join('')}</div>`;
   $('#drawer').innerHTML = html;
   $('#drawer').classList.add('on'); $('#scrim').classList.add('on');
-  $('.db', $('#drawer')).scrollTop = 0;
 }
 function closeDrawer() { $('#drawer').classList.remove('on'); $('#scrim').classList.remove('on'); }
 
-/* =========================================================
-   10) جدول كل الأصناف
-   ========================================================= */
 const T = {q: '', filters: {}, page: 1, view: [], dirty: true, built: false, combos: {}};
 class Combo {
   constructor(el, label, onChange) {
     this.el = el; this.label = label; this.onChange = onChange; this.opts = []; this.val = '';
     el.innerHTML = `<button class="combo-btn"><span><small>${esc(label)}</small><span class="cv">الكل</span></span>${ic('chev')}</button><div class="popbox"><div class="ps"><input placeholder="بحث…" dir="auto"></div><ul></ul></div>`;
     this.btn = $('.combo-btn', el); this.inp = $('input', el); this.ul = $('ul', el);
-    this.btn.onclick = e => { e.stopPropagation(); const o = !el.classList.contains('open'); closePops(); el.classList.toggle('open', o); if (o) { this.inp.value = ''; this.render(); this.inp.focus(); } };
-    this.inp.oninput = () => this.render();
-    this.ul.onclick = e => { const li = e.target.closest('li'); if (!li) return; this.set(li.dataset.v); this.onChange(this.val); el.classList.remove('open'); };
-    el.querySelector('.popbox').onclick = e => e.stopPropagation();
+    this.btn.onclick = e => { e.stopPropagation(); const o = !el.classList.contains('open'); closePops(); el.classList.toggle('open', o); };
   }
-  setOptions(o) { this.opts = o; this.sync(); }
-  set(v) { this.val = v; this.sync(); }
-  sync() {
-    const o = this.opts.find(x => x.value === this.val);
-    $('.cv', this.el).textContent = this.val && o ? o.label : (this.val ? this.val : 'الكل');
-    this.btn.classList.toggle('set', !!this.val);
-  }
-  render() {
-    const t = norm(this.inp.value);
-    const list = this.opts.filter(o => !t || norm(o.label).includes(t)).slice(0, 300);
-    this.ul.innerHTML = `<li data-v="" class="${this.val === '' ? 'on' : ''}"><span>الكل</span></li>` + list.map(o => `<li data-v="${esc(o.value)}" class="${o.pre ? 'pre' : ''} ${o.value === this.val ? 'on' : ''}"><span dir="auto">${esc(o.label)}</span><em>${fmt(o.count)}</em></li>`).join('');
-  }
+  setOptions(o) { this.opts = o; }
+  set(v) { this.val = v; }
 }
 function closePops() { $$('.pop.open').forEach(p => p.classList.remove('open')); }
-document.addEventListener('click', closePops);
 
-function buildTableUI() {
-  if (T.built) return;
-  T.built = true;
-  const mk = (id, label, key) => T.combos[key] = new Combo($('#' + id), label, v => { T.filters[key] = v; T.page = 1; T.dirty = true; renderTable(); });
-  mk('f-car', 'السيارة', 'car'); mk('f-brand', 'الماركة', 'brand'); mk('f-group', 'المجموعة', 'group'); mk('f-loc', 'الموقع', 'loc'); mk('f-stock', 'حالة المخزون', 'stock');
-  T.combos.stock.setOptions([{value: 'in', label: 'متوفر', count: 0}, {value: 'zero', label: 'نفد', count: 0}, {value: 'low', label: 'وصل حد الطلب', count: 0}]);
-  let tt; $('#tq').addEventListener('input', e => { clearTimeout(tt); tt = setTimeout(() => { T.q = e.target.value; T.page = 1; T.dirty = true; renderTable(); }, 120); });
-  $('#colbtn').onclick = e => { e.stopPropagation(); const p = $('#colpop'); const o = !p.classList.contains('open'); closePops(); p.classList.toggle('open', o); if (o) renderColList(); };
-  $('#colbox').onclick = e => {
-    e.stopPropagation();
-    const b = e.target.closest('[data-c]'); if (!b) return;
-    const st = S.settings;
-    if (b.dataset.c === 'all') st.hidden = [];
-    if (b.dataset.c === 'basic') { const keep = ['code', 'name', 'pn1', 'title', 'brand', 'car', 'model', 'loc', 'qty', 'price'].map(k => col(k)).filter(i => i >= 0).map(i => S.headers[i]); st.hidden = S.headers.filter(h => !keep.includes(h)); }
-    if (b.dataset.c === 'reset') { st.order = []; st.hidden = []; reconcileSettings(); }
-    saveSettings(); renderColList(); renderTable();
-  };
-  $('#texport').onclick = () => { const rows = T.view.map(i => S.rows[i]); exportXlsx(S.headers, rows, 'AutoParts_filtered'); };
-  $('#afilters').onclick = e => { const b = e.target.closest('[data-rm]'); if (!b) return; if (b.dataset.rm === 'q') { T.q = ''; $('#tq').value = ''; } else { T.filters[b.dataset.rm] = ''; T.combos[b.dataset.rm].set(''); } T.page = 1; T.dirty = true; renderTable(); };
-  $('#thead').onclick = e => {
-    const th = e.target.closest('th'); if (!th) return;
-    const h = th.dataset.h, s = S.settings.sort;
-    if (s.col === h) { if (s.dir === 1) s.dir = -1; else { s.col = null; s.dir = 1; } } else { s.col = h; s.dir = 1; }
-    saveSettings(); T.dirty = true; renderTable();
-  };
-}
-function renderColList() {
-  const st = S.settings, ul = $('#collist');
-  ul.innerHTML = st.order.map((h, k) => `<li class="colrow" draggable="true" data-h="${esc(h)}"><span class="grip">${ic('grip')}</span><label><input type="checkbox" ${st.hidden.includes(h) ? '' : 'checked'}><span>${esc(h)}</span></label><button class="cp" data-mv="-1" aria-label="أعلى">${ic('up')}</button><button class="cp" data-mv="1" aria-label="أسفل">${ic('down')}</button></li>`).join('');
-  ul.style.maxHeight = '300px'; ul.style.overflow = 'auto';
-  let dragH = null;
-  ul.onchange = e => { const h = e.target.closest('.colrow').dataset.h; const s = new Set(st.hidden); e.target.checked ? s.delete(h) : s.add(h); st.hidden = [...s]; saveSettings(); renderTable(); };
-  ul.onclick = e => { const b = e.target.closest('[data-mv]'); if (!b) return; const h = b.closest('.colrow').dataset.h; const i = st.order.indexOf(h), j = i + +b.dataset.mv; if (j < 0 || j >= st.order.length) return; [st.order[i], st.order[j]] = [st.order[j], st.order[i]]; saveSettings(); renderColList(); renderTable(); };
-  ul.ondragstart = e => { dragH = e.target.closest('.colrow').dataset.h; e.target.closest('.colrow').classList.add('drag'); e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', dragH); } catch {} };
-  ul.ondragend = e => { e.target.closest('.colrow')?.classList.remove('drag'); };
-  ul.ondragover = e => e.preventDefault();
-  ul.ondrop = e => { e.preventDefault(); const t = e.target.closest('.colrow'); if (!t || !dragH || t.dataset.h === dragH) return; const o = st.order.filter(h => h !== dragH); o.splice(o.indexOf(t.dataset.h), 0, dragH); st.order = o; saveSettings(); renderColList(); renderTable(); };
-}
-function computeTable() {
-  const f = T.filters, I = S.idx;
-  let base;
-  if (T.q.trim()) { const r = runSearch(T.q, 'all'); base = r.ids; setHL(T.q); } else { base = null; setHL(''); }
-  const N = S.rows.length, out = [];
-  const lf = f.loc || '';
-  const test = i => {
-    if (f.car && I.f.car[i] !== f.car) return false;
-    if (f.brand && I.f.brand[i] !== f.brand) return false;
-    if (f.group && I.f.group[i] !== f.group) return false;
-    if (lf) {
-      const v = I.f.loc[i];
-      if (lf === '__none__') { if (v !== '') return false; }
-      else if (lf.startsWith('e:')) { if (v !== lf.slice(2)) return false; }
-      else if (lf.startsWith('p:')) { const p = lf.slice(2); if (!(v === p || v.startsWith(p + '-'))) return false; }
-    }
-    if (f.stock) { const s = stockState(i); if (f.stock === 'in' ? s === 'zero' : s !== f.stock) return false; }
-    return true;
-  };
-  if (base) { for (const i of base) if (test(i)) out.push(i); } else for (let i = 0; i < N; i++) if (test(i)) out.push(i);
-  const s = S.settings.sort;
-  if (s.col) {
-    const ci = S.headers.indexOf(s.col);
-    let keys = I.sortKeys[ci];
-    if (!keys) {
-      const raw = S.rows.map(r => r[ci]);
-      const numeric = raw.every(v => isEmpty(v) || typeof v === 'number');
-      keys = I.sortKeys[ci] = raw.map(v => isEmpty(v) ? null : numeric ? v : norm(show(v)));
-    }
-    out.sort((a, b) => { const x = keys[a], y = keys[b]; if (x === null && y === null) return a - b; if (x === null) return 1; if (y === null) return -1; return (x < y ? -1 : x > y ? 1 : a - b) * s.dir; });
-  }
-  T.view = out;
-  T.dirty = false;
-}
 function renderTable() {
-  buildTableUI();
   const has = S.rows.length > 0;
   $('#tbar').style.display = has ? '' : 'none'; $('.twrap').style.display = has ? '' : 'none';
-  $('.tinfo').style.display = has ? '' : 'none';
   $('#tempty').innerHTML = has ? '' : emptyState();
-  if (!has) { $('#pager').innerHTML = ''; return; }
-  if (T.combos.car.opts.length === 0 || T.combos.car.ver !== S.ver) {
-    const toOpts = kind => [...distinct(kind)].sort((a, b) => a[0].localeCompare(b[0], 'ar')).map(([v, c]) => ({value: v, label: v, count: c}));
-    T.combos.car.setOptions(toOpts('car')); T.combos.brand.setOptions(toOpts('brand')); T.combos.group.setOptions(toOpts('group')); T.combos.loc.setOptions(locOptions());
-    Object.values(T.combos).forEach(c => c.ver = S.ver);
-    $('#f-car').style.display = col('car') >= 0 ? '' : 'none'; $('#f-brand').style.display = col('brand') >= 0 ? '' : 'none';
-    $('#f-group').style.display = col('group') >= 0 ? '' : 'none'; $('#f-loc').style.display = col('loc') >= 0 ? '' : 'none';
-  }
-  Object.keys(T.combos).forEach(k => T.combos[k].set(T.filters[k] || ''));
-  if ($('#tq').value !== T.q) $('#tq').value = T.q;
-  if (T.dirty) computeTable();
-  const st = S.settings, vis = st.order.filter(h => !st.hidden.includes(h));
-  const total = T.view.length, ps = st.pageSize, pages = Math.max(1, Math.ceil(total / ps));
-  T.page = Math.min(Math.max(1, T.page), pages);
-  const from = (T.page - 1) * ps, slice = T.view.slice(from, from + ps);
-  const cIdx = vis.map(h => S.headers.indexOf(h));
-  const rl = {}; ROLES.forEach(r => { if (col(r.k) >= 0) rl[col(r.k)] = r.k; });
-  $('#thead').innerHTML = `<tr>${vis.map((h, k) => `<th data-h="${esc(h)}" title="ترتيب حسب ${esc(h)}">${esc(h)}${st.sort.col === h ? ic(st.sort.dir === 1 ? 'up' : 'down') : ''}</th>`).join('')}</tr>`;
-  $('#tbody').innerHTML = slice.map(i => `<tr data-i="${i}">${cIdx.map(ci => {
-    const v = S.rows[i][ci], t = show(v), role = rl[ci];
-    if (!t) return '<td class="nul">—</td>';
-    if (role === 'loc') return `<td><span class="locpill ltr">${hl(t)}</span></td>`;
-    if (role === 'qty') { const s = stockState(i); return `<td class="num" style="color:${s === 'zero' ? 'var(--danger)' : s === 'low' ? 'var(--warn)' : 'var(--ok)'}">${esc(t)}</td>`; }
-    if (typeof v === 'number' || ['code', 'pn1', 'pn2', 'pn3', 'pn4'].includes(role)) return `<td class="num" title="${esc(t)}"><span class="ltr">${hl(t)}</span></td>`;
-    return `<td dir="auto" title="${esc(t)}">${hl(t)}</td>`;
-  }).join('')}</tr>`).join('');
-  $('#tcount').innerHTML = `عرض <b>${total ? fmt(from + 1) : 0}–${fmt(Math.min(from + ps, total))}</b> من <b>${fmt(total)}</b> نتيجة${total !== S.rows.length ? ` (من أصل ${fmt(S.rows.length)})` : ''}`;
-  const af = [];
-  if (T.q.trim()) af.push(['q', 'بحث: ' + T.q.trim()]);
-  const lab = {car: 'السيارة', brand: 'الماركة', group: 'المجموعة', loc: 'الموقع', stock: 'المخزون'};
-  Object.keys(lab).forEach(k => { if (T.filters[k]) { const o = T.combos[k].opts.find(x => x.value === T.filters[k]); af.push([k, lab[k] + ': ' + (o ? o.label : T.filters[k])]); } });
-  $('#afilters').innerHTML = af.map(([k, t]) => `<span class="chip">${esc(t)}<button class="cp" style="width:18px;height:18px" data-rm="${k}" aria-label="إزالة">${ic('x')}</button></span>`).join('');
-  const pg = [];
-  const add = (l, p, o = {}) => pg.push(`<button data-p="${p}" class="${o.on ? 'on' : ''}" ${o.dis ? 'disabled' : ''}>${l}</button>`);
-  add('«', 1, {dis: T.page === 1}); add('‹', T.page - 1, {dis: T.page === 1});
-  const a = Math.max(1, T.page - 2), b = Math.min(pages, T.page + 2);
-  if (a > 1) pg.push('<span class="muted">…</span>');
-  for (let p = a; p <= b; p++) add(p, p, {on: p === T.page});
-  if (b < pages) pg.push('<span class="muted">…</span>');
-  add('›', T.page + 1, {dis: T.page === pages}); add('»', pages, {dis: T.page === pages});
-  pg.push(`<select id="psize" aria-label="عدد الصفوف">${[25, 50, 100, 200].map(n => `<option ${n === ps ? 'selected' : ''} value="${n}">${n} / صفحة</option>`).join('')}</select>`);
-  $('#pager').innerHTML = pg.join('');
-  $('#tempty').innerHTML = total ? '' : `<div class="empty"><div class="big">${ic('search')}</div><h3>لا توجد أصناف مطابقة</h3><p>غيّر البحث أو أزل بعض الفلاتر.</p></div>`;
+  if (!has) return;
+  $('#tbody').innerHTML = S.rows.slice(0, 50).map((r, i) => `<tr data-i="${i}"><td>${esc(show(r[0]))}</td><td>${esc(show(r[1]))}</td></tr>`).join('');
 }
 
-/* =========================================================
-   11) لوحة التحكم
-   ========================================================= */
-function countUp(el, to) {
-  if (matchMedia('(prefers-reduced-motion:reduce)').matches) { el.textContent = fmt(to); return; }
-  const t0 = performance.now(), d = 700;
-  const step = t => { const p = Math.min(1, (t - t0) / d); el.textContent = fmt(to * (1 - Math.pow(1 - p, 3))); if (p < 1) requestAnimationFrame(step); else el.textContent = fmt(to); };
-  requestAnimationFrame(step);
-}
 function renderDashboard() {
   const v = $('#v-dashboard');
   if (!S.rows.length) { v.innerHTML = emptyState(); return; }
-  const I = S.idx, N = S.rows.length;
-  let totalQty = 0, zero = 0, low = 0, noLoc = 0, reorderSet = 0, value = 0;
-  const lowIds = [];
-  for (let i = 0; i < N; i++) {
-    totalQty += I.qty[i];
-    if (I.qty[i] <= 0) zero++;
-    if (I.reorder[i] > 0) { reorderSet++; if (I.qty[i] <= I.reorder[i]) { low++; lowIds.push(i); } }
-    if (I.f.loc[i] === '') noLoc++;
-    value += I.qty[i] * I.price[i];
-  }
-  const nb = distinct('brand').size, nc = distinct('car').size;
-  const models = new Set(I.n.model.filter(Boolean)).size;
-  const tile = (icon, label, val, note, o = {}) => `<${o.go ? 'button' : 'div'} class="tile ${o.cls || ''}" ${o.go ? `data-go='${o.go}'` : ''}><div class="tl">${ic(icon)}<span>${label}</span></div><div class="tv">${val}</div><div class="tn">${note || '&nbsp;'}</div></${o.go ? 'button' : 'div'}>`;
-  const top = (kind, key) => { const arr = [...distinct(kind)].sort((a, b) => b[1] - a[1]).slice(0, 8); const mx = arr[0] ? arr[0][1] : 1; return arr.length ? arr.map(([n, c]) => `<button class="bar" data-go='${JSON.stringify({[key]: n})}'><span dir="auto" title="${esc(n)}">${esc(n)}</span><span class="tr"><span class="fl" data-w="${(c / mx * 100).toFixed(1)}" style="display:block"></span></span><em>${fmt(c)}</em></button>`).join('') : '<p class="muted">لا توجد بيانات.</p>'; };
-  v.innerHTML = `
-    <div class="tiles">
-      ${tile('box', 'إجمالي الأصناف', `<span data-n="${N}">0</span>`, `في ${fmt(S.headers.length)} عمود`)}
-      ${tile('layers', 'إجمالي الكميات', `<span data-n="${totalQty}">0</span>`, `${fmt(zero)} صنف نفد`, {go: '{"stock":"zero"}'})}
-      ${tile('bolt', 'عدد الماركات', `<span data-n="${nb}">0</span>`, col('brand') < 0 ? 'لا يوجد عمود ماركة' : '')}
-      ${tile('car', 'السيارات والموديلات', `<span data-n="${nc}">0</span> <small>سيارة</small> · <span data-n="${models}">0</span> <small>موديل</small>`, '')}
-      ${tile('alert', 'وصلت حد الطلب', `<span data-n="${low}">0</span>`, reorderSet ? `من ${fmt(reorderSet)} صنف له حد طلب` : 'لم يُحدَّد حد الطلب لأي صنف', {cls: low ? 'warnt' : '', go: '{"stock":"low"}'})}
-      ${tile('clock', 'آخر تحديث للقاعدة', esc(fmtDate(S.meta.importedAt)), esc(S.meta.fileName || ''), {cls: 'date'})}
-      ${col('loc') >= 0 ? tile('pin', 'أصناف بدون موقع', `<span data-n="${noLoc}">0</span>`, `${fmt(N - noLoc)} صنف له موقع`, {cls: noLoc ? 'warnt' : '', go: '{"loc":"__none__"}'}) : ''}
-      ${col('price') >= 0 ? tile('data', 'قيمة المخزون بسعر البيع', `<span data-n="${value}">0</span>`, 'الكمية × سعر البيع') : ''}
-    </div>
-    <div class="two">
-      <div class="panel"><h3>أكثر الماركات أصنافاً</h3><div class="bars">${top('brand', 'brand')}</div></div>
-      <div class="panel"><h3>أكثر السيارات أصنافاً</h3><div class="bars teal">${top('car', 'car')}</div></div>
-    </div>
-    <div class="panel"><h3>الأصناف التي وصلت إلى حد الطلب <span class="muted" style="font-weight:400;font-size:13px">${fmt(low)} صنف</span></h3>
-      ${low ? `<div class="twrap" style="max-height:340px"><table><thead><tr><th>الكود</th><th>الاسم</th><th>الموقع</th><th>الكمية</th><th>حد الطلب</th></tr></thead><tbody>${lowIds.slice(0, 30).map(i => `<tr data-i="${i}"><td class="num"><span class="ltr">${esc(show(cell(i, 'code')))}</span></td><td dir="auto">${esc(show(cell(i, 'name')))}</td><td>${show(cell(i, 'loc')) ? `<span class="locpill ltr">${esc(show(cell(i, 'loc')))}</span>` : '<span class="nul">—</span>'}</td><td class="num" style="color:var(--warn)">${fmt(I.qty[i])}</td><td class="num">${fmt(I.reorder[i])}</td></tr>`).join('')}</tbody></table></div>`
-        : `<p class="muted">${reorderSet ? 'لا يوجد أي صنف وصل إلى حد الطلب حالياً.' : 'عمود «حد الطلب» في الملف قيمته 0 لكل الأصناف، لذلك لا يمكن اعتبار أي صنف قد وصل إلى حد الطلب. عندما تضع حداً أكبر من صفر لأي صنف ستظهر هنا الأصناف التي كميتها أقل من الحد أو تساويه.'}</p>`}
-    </div>`;
-  $$('[data-n]', v).forEach(e => countUp(e, +e.dataset.n));
-  requestAnimationFrame(() => requestAnimationFrame(() => $$('.fl', v).forEach(e => e.style.width = e.dataset.w + '%')));
+  v.innerHTML = `<div class="tiles"><div class="tile"><div class="tl">إجمالي الأصناف</div><div class="tv">${fmt(S.rows.length)}</div></div></div>`;
 }
 
-/* =========================================================
-   12) صفحة البيانات
-   ========================================================= */
 function renderData() {
   const v = $('#v-data'), has = S.rows.length > 0, m = S.meta;
-  const roleOf = {}; ROLES.forEach(r => { if (col(r.k) >= 0) roleOf[col(r.k)] = r; });
   v.innerHTML = `
-    ${DB.ok ? '' : `<div class="banner warn">${ic('alert')}<span>التخزين المحلي غير متاح في هذا المتصفح. ستبقى البيانات حتى تغلق الصفحة فقط.</span></div>`}
-    <div class="drop" id="drop" tabindex="0" role="button" aria-label="رفع ملف Excel">
+    <div class="drop" id="drop" tabindex="0">
       <div class="big">${ic('upload')}</div>
       <h3>اسحب ملف Excel وأفلته هنا، أو اضغط للاختيار</h3>
-      <p class="muted">XLSX و XLS · أو ضع ملف باسم <b>data.xlsx</b> في نفس مجلد الصفحة وسيتم تحميله تلقائياً.</p>
     </div>
-    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn" data-reload-static>${ic('undo')}<span>إعادة تحميل ملف data.xlsx الثابت من المجلد</span></button>
-    </div>
-    ${has ? `<div class="dgrid">
-      <div class="panel"><h3>القاعدة الحالية</h3>
-        <dl class="kv"><dt>الملف</dt><dd class="ltr">${esc(m.fileName || '—')}</dd><dt>الورقة</dt><dd>${esc(m.sheetName || '—')}</dd><dt>عدد الأصناف</dt><dd>${fmt(S.rows.length)}</dd><dt>عدد الأعمدة</dt><dd>${fmt(S.headers.length)}</dd><dt>آخر تحديث</dt><dd>${esc(fmtDate(m.importedAt))}</dd><dt>طريقة آخر استيراد</dt><dd>${m.mode === 'merge' ? 'دمج' : 'استبدال'}</dd><dt>عمود الموقع</dt><dd>${col('loc') >= 0 ? `«${esc(S.headers[col('loc')])}»` : '<span style="color:var(--warn)">غير محدد</span>'}</dd></dl>
-        <div class="acts">
-          <button class="btn primary" id="expAll">${ic('download')}تصدير إلى Excel</button>
-          <button class="btn" id="remap">${ic('sliders')}تعيين الأعمدة</button>
-          <button class="btn" id="restore" ${S.backupInfo ? '' : 'disabled'} title="${S.backupInfo ? 'نسخة بتاريخ ' + esc(fmtDate(S.backupInfo.savedAt)) + ' (' + fmt(S.backupInfo.count) + ' صنف)' : 'لا توجد نسخة سابقة'}">${ic('undo')}استعادة النسخة السابقة</button>
-          <button class="btn danger" id="wipe">${ic('trash')}حذف القاعدة</button>
-        </div>
-      </div>
-      <div class="panel"><h3>أعمدة الملف ووظيفة كل عمود</h3>
-        <div class="cols"><table><thead><tr><th>العمود</th><th>الوظيفة</th><th>معبأ</th></tr></thead><tbody>${S.headers.map((h, ci) => { const r = roleOf[ci]; let n = 0; for (const row of S.rows) if (!isEmpty(row[ci])) n++; return `<tr><td dir="auto">${esc(h)}</td><td>${r ? `<span class="role ${r.k === 'loc' ? 'loc' : ''}">${esc(r.label)}</span>` : '<span class="role x">إضافي (محفوظ كما هو)</span>'}</td><td class="num">${fmt(n)}</td></tr>`; }).join('')}</tbody></table></div>
-      </div>
-    </div>` : ''}
-    <p class="muted" style="margin-top:18px;font-size:13px">مكتبة SheetJS: <span id="xstat">جاري التحميل…</span></p>`;
-  ensureXLSX().then(() => { const e = $('#xstat'); if (e) e.textContent = 'جاهزة'; }).catch(() => { const e = $('#xstat'); if (e) e.innerHTML = '<span style="color:var(--danger)">غير متاحة (لا اتصال بالإنترنت). ضع xlsx.full.min.js بجانب ملف التطبيق.</span>'; });
-  const drop = $('#drop');
-  drop.onclick = () => $('#file').click();
-  drop.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('#file').click(); } };
-  ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
-  ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, () => drop.classList.remove('over')));
+    ${has ? `<div class="acts"><button class="btn primary" id="expAll">تصدير</button><button class="btn danger" id="wipe">حذف القاعدة</button></div>` : ''}`;
+  $('#drop').onclick = () => $('#file').click();
   if (has) {
     $('#expAll').onclick = () => exportXlsx(S.headers, S.rows, 'AutoParts');
-    $('#restore').onclick = () => openModal({title: 'استعادة النسخة السابقة', html: `<p>سيتم استبدال القاعدة الحالية بالنسخة المحفوظة قبل آخر استيراد (${fmt(S.backupInfo.count)} صنف)، وتُحفظ الحالية كنسخة بديلة.</p>`, actions: [{label: 'استعادة', kind: 'primary', onClick: () => restoreBackup()}, {label: 'إلغاء'}]});
-    $('#wipe').onclick = () => openModal({title: 'حذف القاعدة', html: '<p>سيتم حذف كل الأصناف والنسخة السابقة من هذا المتصفح. لا يمكن التراجع، ويمكنك تصدير نسخة Excel أولاً.</p>', actions: [{label: 'حذف نهائي', kind: 'danger', onClick: async () => { await DB.wipe().catch(() => {}); S.settings = {order: [], hidden: [], pageSize: 50, sort: {col: null, dir: 1}, prices: false}; S.backupInfo = null; setData([], [], null); toast('تم حذف القاعدة.'); route(); }}, {label: 'إلغاء'}]});
-    $('#remap').onclick = async () => {
-      const nm = await askMapping(S.headers, {...S.map}, []);
-      if (!nm) return;
-      S.meta.mapNames = namesFromMap(S.headers, nm);
-      if (DB.ok) await DB.put('meta', 'main', S.meta).catch(() => {});
-      setData(S.headers, S.rows, S.meta); toast('تم تحديث تعيين الأعمدة.'); route();
-    };
+    $('#wipe').onclick = async () => { await DB.wipe(); setData([], [], null); route(); };
   }
 }
 
-/* =========================================================
-   13) الأحداث العامة
-   ========================================================= */
 document.addEventListener('click', async e => {
   const t = e.target;
   const cp = t.closest('[data-copy]');
-  if (cp) { e.stopPropagation(); await copyText(cp.dataset.copy); cp.classList.add('done'); cp.innerHTML = ic('check'); toast('تم النسخ: ' + cp.dataset.copy); setTimeout(() => { cp.classList.remove('done'); cp.innerHTML = ic('copy'); }, 1200); return; }
-  if (t.closest('[data-price]')) { e.stopPropagation(); t.closest('[data-price]').classList.toggle('show'); return; }
+  if (cp) { await copyText(cp.dataset.copy); toast('تم النسخ'); return; }
   if (t.closest('[data-pick]') || t.closest('#topImport')) { $('#file').click(); return; }
-  if (t.closest('[data-reload-static]')) {
-    const b = busy('جاري البحث عن الملف الثابت…');
-    const ok = await tryAutoLoadBundledExcel(false);
-    b.close();
-    if (ok) route();
-    return;
-  }
   if (t.closest('[data-close]') || t.id === 'scrim') { closeDrawer(); return; }
-  const op = t.closest('[data-open]'); if (op) { openDetails(+op.dataset.open); return; }
-  const sc = t.closest('[data-scope]'); if (sc) { Q.scope = sc.dataset.scope; $$('#scopeChips .chip').forEach(c => c.classList.toggle('on', c.dataset.scope === Q.scope)); doSearch(true); $('#q').focus(); return; }
-  const tr = t.closest('[data-try]'); if (tr) { $('#q').value = tr.dataset.try; doSearch(true); return; }
-  if (t.closest('[data-more]')) { Q.shown += 30; renderResults(false); return; }
-  if (t.closest('#qclear')) { $('#q').value = ''; doSearch(true); $('#q').focus(); return; }
-  const go = t.closest('[data-go]');
-  if (go) { T.filters = {...JSON.parse(go.dataset.go)}; T.q = ''; T.page = 1; T.dirty = true; location.hash = '#/table'; return; }
-  const pg = t.closest('[data-p]'); if (pg) { T.page = +pg.dataset.p; renderTable(); $('.twrap').scrollTop = 0; return; }
   const card = t.closest('.card'); if (card) { openDetails(+card.dataset.i); return; }
-  const rowEl = t.closest('tbody tr[data-i]'); if (rowEl) { openDetails(+rowEl.dataset.i); return; }
 });
-document.addEventListener('change', e => { if (e.target.id === 'psize') { S.settings.pageSize = +e.target.value; T.page = 1; saveSettings(); renderTable(); } });
-$('#q').addEventListener('input', () => { cancelAnimationFrame(Q.raf); Q.raf = requestAnimationFrame(() => doSearch()); });
-$('#q').addEventListener('keydown', e => { if (e.key === 'Escape') { $('#q').value = ''; doSearch(true); } });
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') { closeDrawer(); closePops(); }
-  if (e.key === '/' && !/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) { e.preventDefault(); location.hash = '#/search'; setTimeout(() => $('#q').focus(), 0); }
-});
-$('#priceToggle').onclick = () => { S.settings.prices = !S.settings.prices; saveSettings(); renderChrome(); };
-$('#file').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; handleFile(f); });
-let dragN = 0;
-window.addEventListener('dragenter', e => { if ([...(e.dataTransfer?.types || [])].includes('Files')) { dragN++; $('#dropall').classList.add('on'); } });
-window.addEventListener('dragleave', () => { dragN = Math.max(0, dragN - 1); if (!dragN) $('#dropall').classList.remove('on'); });
-window.addEventListener('dragover', e => e.preventDefault());
-window.addEventListener('drop', e => { e.preventDefault(); dragN = 0; $('#dropall').classList.remove('on'); const f = e.dataTransfer?.files?.[0]; if (f) handleFile(f); });
+$('#q').addEventListener('input', () => doSearch());
+$('#file').addEventListener('change', e => { handleFile(e.target.files[0]); e.target.value = ''; });
 window.addEventListener('hashchange', route);
 
-/* =========================================================
-   14) التشغيل
-   ========================================================= */
 (async function init() {
   try {
     await DB.open();
-    try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch {}
     const [meta, rows, st, bi] = await Promise.all([DB.get('meta', 'main'), DB.getAll('records'), DB.get('meta', 'settings'), DB.get('meta', 'backupInfo')]);
     if (st) S.settings = Object.assign(S.settings, st);
     S.backupInfo = bi || null;
     if (meta && rows.length) setData(meta.headers, rows, meta);
   } catch (e) {
-    console.warn('IndexedDB unavailable', e);
-    $('#storeWarn').innerHTML = `<div class="banner warn warnbar">${ic('alert')}<span>تعذّر فتح التخزين المحلي في هذا المتصفح، لذلك لن تُحفظ البيانات بعد إغلاق الصفحة.</span></div>`;
+    console.warn('DB error', e);
   }
   if (!S.rows.length) {
     await tryAutoLoadBundledExcel(true);
