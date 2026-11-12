@@ -1,0 +1,1720 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Auto Parts Smart Finder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0b0f15; --bg2:#10161f; --panel:rgba(255,255,255,.045); --panel2:rgba(255,255,255,.07);
+  --line:rgba(255,255,255,.09); --line2:rgba(255,255,255,.16);
+  --text:#e9eef6; --muted:#8c99ad; --dim:#5f6b7e;
+  --amber:#ffb224; --amber-soft:rgba(255,178,36,.14); --amber-line:rgba(255,178,36,.5);
+  --teal:#2dd4bf; --teal-soft:rgba(45,212,191,.13);
+  --ok:#3ddc97; --danger:#ff6b6b; --warn:#ffcf5c;
+  --r:14px; --r-sm:9px;
+  --sans:'IBM Plex Sans Arabic','Segoe UI',Tahoma,system-ui,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,Consolas,'Courier New',monospace;
+  --side:244px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;line-height:1.6;font-size:15px;overflow-x:hidden}
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:radial-gradient(900px 500px at 85% -10%,rgba(255,178,36,.10),transparent 60%),radial-gradient(700px 500px at -5% 105%,rgba(45,212,191,.09),transparent 60%),
+  linear-gradient(var(--bg),var(--bg2))}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;background:none;border:0}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px;border-radius:6px}
+.ic{width:1.15em;height:1.15em;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.ltr{direction:ltr;unicode-bidi:isolate;display:inline-block;text-align:right}
+.mono{font-family:var(--mono)}
+.muted{color:var(--muted)}
+mark{background:rgba(255,178,36,.32);color:#fff;border-radius:3px;padding:0 1px}
+::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14);border-radius:9px;border:2px solid transparent;background-clip:padding-box}
+
+/* layout */
+.app{display:grid;grid-template-columns:var(--side) 1fr;min-height:100vh}
+.side{position:sticky;top:0;height:100vh;padding:20px 14px;display:flex;flex-direction:column;gap:6px;border-inline-end:1px solid var(--line);background:rgba(8,11,16,.6);backdrop-filter:blur(18px)}
+.brand{display:flex;align-items:center;gap:11px;padding:6px 10px 20px}
+.logo{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;background:linear-gradient(145deg,var(--amber),#ff7a1a);color:#1a1100;box-shadow:0 6px 22px rgba(255,150,30,.35)}
+.logo .ic{width:22px;height:22px;stroke-width:2.2}
+.brand b{display:block;font-size:15px;line-height:1.2;letter-spacing:.2px}
+.brand small{color:var(--muted);font-size:11.5px}
+.nav a{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:11px;color:var(--muted);text-decoration:none;font-weight:500;transition:background .2s,color .2s;position:relative}
+.nav a:hover{background:var(--panel);color:var(--text)}
+.nav a.on{background:var(--amber-soft);color:var(--amber)}
+.nav a.on::before{content:"";position:absolute;inset-inline-start:-14px;top:9px;bottom:9px;width:3px;border-radius:3px;background:var(--amber)}
+.nav .ic{width:20px;height:20px}
+.side .grow{flex:1}
+.dbcard{margin:8px 4px 0;padding:12px;border-radius:12px;background:var(--panel);border:1px solid var(--line);font-size:12.5px;color:var(--muted)}
+.dbcard b{display:block;color:var(--text);font-size:18px;font-family:var(--mono);font-weight:700}
+.main{min-width:0;padding:26px clamp(16px,3vw,40px) 60px}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:22px}
+.topbar h2{font-size:20px;font-weight:700}
+.top-actions{display:flex;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:9px 15px;border-radius:10px;background:var(--panel2);border:1px solid var(--line);font-weight:500;transition:transform .15s,background .2s,border-color .2s;white-space:nowrap}
+.btn:hover{background:rgba(255,255,255,.1);border-color:var(--line2)}
+.btn:active{transform:scale(.97)}
+.btn.primary{background:linear-gradient(145deg,var(--amber),#ff8a1f);color:#1a1100;border-color:transparent;font-weight:700}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.danger{color:var(--danger)}
+.btn.sm{padding:6px 10px;font-size:13px;border-radius:8px}
+.btn.icon{padding:9px}
+.btn[disabled]{opacity:.4;pointer-events:none}
+.glass{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);backdrop-filter:blur(14px)}
+
+.view{display:none}
+.view.on{display:block;animation:viewin .35s ease both}
+@keyframes viewin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* search */
+.hero{max-width:880px;margin:10px auto 22px;text-align:center}
+.hero h1{font-size:clamp(24px,4vw,36px);font-weight:700;line-height:1.3;margin-bottom:6px}
+.hero p{color:var(--muted);margin-bottom:22px}
+.searchbox{display:flex;align-items:center;gap:12px;padding:0 18px;height:68px;border-radius:18px;border:1.5px solid var(--line2);background:rgba(255,255,255,.06);transition:border-color .2s,box-shadow .25s}
+.searchbox:focus-within{border-color:var(--amber);box-shadow:0 0 0 5px var(--amber-soft),0 16px 50px rgba(0,0,0,.4)}
+.searchbox .ic{width:26px;height:26px;color:var(--amber)}
+.searchbox input{flex:1;min-width:0;background:none;border:0;outline:0;font-size:22px;height:100%;font-family:var(--mono);font-weight:500}
+.searchbox input::placeholder{font-family:var(--sans);color:var(--dim);font-weight:400;font-size:18px}
+kbd{font-family:var(--mono);font-size:12px;border:1px solid var(--line2);border-bottom-width:2px;border-radius:6px;padding:1px 7px;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:14px}
+.chip{padding:6px 14px;border-radius:99px;border:1px solid var(--line);background:var(--panel);color:var(--muted);font-size:13.5px;transition:.2s}
+.chip:hover{color:var(--text);border-color:var(--line2)}
+.chip.on{background:var(--amber-soft);border-color:var(--amber-line);color:var(--amber);font-weight:600}
+.tryrow{margin-top:14px;color:var(--dim);font-size:13px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;align-items:center}
+.try{font-family:var(--mono);font-size:13px;padding:3px 10px;border-radius:7px;background:var(--panel);border:1px dashed var(--line2);color:var(--muted)}
+.try:hover{color:var(--amber);border-color:var(--amber-line)}
+.rmeta{display:flex;justify-content:space-between;align-items:center;margin:6px 2px 14px;color:var(--muted);font-size:13.5px;min-height:24px;flex-wrap:wrap;gap:8px}
+.banner{display:flex;gap:10px;align-items:flex-start;padding:11px 14px;border-radius:11px;background:var(--teal-soft);border:1px solid rgba(45,212,191,.35);color:#bff5ec;margin-bottom:14px;font-size:14px}
+.banner.warn{background:var(--amber-soft);border-color:var(--amber-line);color:#ffe2a8}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,370px),1fr));gap:16px}
+.card{position:relative;display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:16px;background:linear-gradient(180deg,rgba(255,255,255,.065),rgba(255,255,255,.03));border:1px solid var(--line);backdrop-filter:blur(12px);transition:border-color .2s,transform .2s,box-shadow .2s;animation:rise .4s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(var(--d,0)*45ms);cursor:pointer}
+.cards.noanim .card{animation:none}
+@keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.card:hover{border-color:var(--line2);transform:translateY(-2px);box-shadow:0 14px 40px rgba(0,0,0,.35)}
+.c-top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.codepill{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-weight:700;font-size:15px;padding:4px 6px 4px 11px;border-radius:9px;background:rgba(255,255,255,.07);border:1px solid var(--line)}
+.cp{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:7px;color:var(--muted);transition:.15s}
+.cp:hover{background:rgba(255,255,255,.12);color:var(--text)}
+.cp.done{color:var(--ok)}
+.qty{display:inline-flex;align-items:center;gap:7px;padding:4px 11px;border-radius:99px;font-size:13px;font-weight:600;background:rgba(61,220,151,.13);color:var(--ok)}
+.qty.zero{background:rgba(255,107,107,.14);color:var(--danger)}
+.qty.low{background:rgba(255,207,92,.15);color:var(--warn)}
+.qty i{width:7px;height:7px;border-radius:50%;background:currentColor}
+.c-name{font-size:16.5px;font-weight:600;line-height:1.5;word-break:break-word}
+.c-title{display:inline-flex;gap:6px;align-items:center;color:var(--teal);font-size:13px;background:var(--teal-soft);padding:2px 10px;border-radius:99px;width:fit-content;max-width:100%}
+.pns{display:flex;flex-wrap:wrap;gap:7px}
+.pn{display:inline-flex;align-items:center;gap:6px;padding:3px 4px 3px 9px;border-radius:8px;background:rgba(255,255,255,.045);border:1px solid var(--line);font-size:13px}
+.pn small{color:var(--dim);font-size:11px}
+.pn .mono{font-weight:700}
+.nopn{color:var(--dim);font-size:13px}
+.loc{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:12px;background:linear-gradient(135deg,rgba(255,178,36,.2),rgba(255,178,36,.06));border:1.5px solid var(--amber-line);position:relative;overflow:hidden}
+.loc::after{content:"";position:absolute;inset-inline-end:-18px;top:-18px;width:64px;height:64px;border-radius:50%;background:rgba(255,178,36,.12)}
+.loc .pin{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;background:var(--amber);color:#1a1100;flex:none}
+.loc .pin .ic{width:21px;height:21px;stroke-width:2.2}
+.loc small{display:block;color:#ffd48a;font-size:11.5px;line-height:1.2}
+.loc .lv{font-family:var(--mono);font-weight:700;font-size:21px;color:var(--amber);letter-spacing:.3px;line-height:1.3;word-break:break-all}
+.loc .cp{margin-inline-start:auto;position:relative;z-index:1;color:#ffd48a}
+.loc.none{background:rgba(255,255,255,.03);border:1.5px dashed var(--line2)}
+.loc.none .pin{background:rgba(255,255,255,.08);color:var(--muted)}
+.loc.none .lv{color:var(--muted);font-family:var(--sans);font-size:15px;font-weight:500}
+.loc.none::after{display:none}
+.meta3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.meta3 div{padding:7px 10px;border-radius:9px;background:rgba(255,255,255,.035);min-width:0}
+.meta3 small{display:block;color:var(--dim);font-size:11.5px}
+.meta3 span{display:block;font-size:13.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.c-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;padding-top:10px;border-top:1px solid var(--line);margin-top:auto}
+.qbig{font-family:var(--mono);font-weight:700;font-size:22px}
+.qbig small{font-family:var(--sans);font-size:12px;color:var(--muted);font-weight:400;margin-inline-start:6px}
+.price{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-weight:700;color:#e8f0ff;cursor:pointer;padding:3px 8px;border-radius:8px;background:rgba(255,255,255,.05)}
+.price .pv{filter:blur(6px);transition:filter .2s;user-select:none}
+.price.show .pv,body.prices .price .pv{filter:none;user-select:auto}
+.price small{font-family:var(--sans);font-weight:400;color:var(--muted);font-size:11.5px}
+.more{display:flex;justify-content:center;margin:22px 0}
+.empty{text-align:center;padding:50px 20px;color:var(--muted);max-width:520px;margin:20px auto}
+.empty .big{width:72px;height:72px;border-radius:20px;margin:0 auto 16px;display:grid;place-items:center;background:var(--panel2);color:var(--amber)}
+.empty .big .ic{width:34px;height:34px}
+.empty h3{color:var(--text);font-size:19px;margin-bottom:6px}
+.empty .btn{margin-top:18px}
+
+/* bulk search */
+.bulk-grid{display:grid;grid-template-columns:360px 1fr;gap:18px;align-items:start}
+.bulk-box{padding:18px;border-radius:16px;background:var(--panel);border:1px solid var(--line);display:flex;flex-direction:column;gap:12px;position:sticky;top:20px}
+.bulk-box h3{font-size:16px;display:flex;align-items:center;gap:8px}
+.bulk-box textarea{width:100%;min-height:260px;padding:12px 14px;border-radius:12px;background:rgba(0,0,0,.28);border:1.5px solid var(--line2);font-family:var(--mono);font-size:14.5px;line-height:1.8;resize:vertical;outline:0;direction:ltr;text-align:left}
+.bulk-box textarea:focus{border-color:var(--amber);box-shadow:0 0 0 4px var(--amber-soft)}
+.bulk-box textarea::placeholder{font-family:var(--sans);direction:rtl;text-align:right;color:var(--dim)}
+.bulk-acts{display:flex;gap:8px;flex-wrap:wrap}
+.bulk-stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;align-items:center;justify-content:space-between}
+.bulk-badges{display:flex;gap:8px;flex-wrap:wrap}
+.badge{padding:4px 11px;border-radius:99px;font-size:13px;font-weight:600;background:var(--panel2);border:1px solid var(--line)}
+.badge.ok{background:rgba(61,220,151,.13);color:var(--ok);border-color:rgba(61,220,151,.3)}
+.badge.miss{background:rgba(255,107,107,.13);color:var(--danger);border-color:rgba(255,107,107,.3)}
+.badge.dup{background:var(--amber-soft);color:var(--amber);border-color:var(--amber-line)}
+.bulk-miss{background:rgba(255,107,107,.06)!important}
+.bulk-miss:hover{background:rgba(255,107,107,.11)!important}
+.pn-stack{display:flex;flex-wrap:wrap;gap:5px}
+.pn-tag{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:6px;background:rgba(255,255,255,.06);border:1px solid var(--line);font-family:var(--mono);font-size:12.5px}
+
+/* table */
+.tbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px}
+.tsearch{flex:1 1 260px;display:flex;align-items:center;gap:10px;padding:0 14px;height:44px;border-radius:12px;background:var(--panel);border:1px solid var(--line);min-width:0}
+.tsearch:focus-within{border-color:var(--amber)}
+.tsearch input{flex:1;min-width:0;background:none;border:0;outline:0}
+.pop{position:relative}
+.combo-btn{display:flex;align-items:center;gap:8px;height:44px;padding:0 13px;border-radius:12px;background:var(--panel);border:1px solid var(--line);min-width:130px;justify-content:space-between;transition:.2s}
+.combo-btn:hover{border-color:var(--line2)}
+.combo-btn.set{border-color:var(--amber-line);background:var(--amber-soft)}
+.combo-btn small{color:var(--muted);font-size:12px;display:block;line-height:1}
+.combo-btn span{display:block;font-size:13.5px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.popbox{position:absolute;top:calc(100% + 6px);inset-inline-start:0;z-index:40;width:290px;max-width:90vw;max-height:380px;display:none;flex-direction:column;background:#141b26;border:1px solid var(--line2);border-radius:13px;box-shadow:0 24px 60px rgba(0,0,0,.6);overflow:hidden}
+.pop.open .popbox{display:flex;animation:viewin .18s ease both}
+.popbox .ps{padding:8px;border-bottom:1px solid var(--line)}
+.popbox .ps input{width:100%;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.06);border:1px solid var(--line);outline:0}
+.popbox ul{list-style:none;overflow:auto;padding:5px}
+.popbox li{display:flex;justify-content:space-between;gap:8px;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:13.5px}
+.popbox li:hover,.popbox li.on{background:rgba(255,255,255,.08)}
+.popbox li.on{color:var(--amber)}
+.popbox li em{font-style:normal;color:var(--dim);font-family:var(--mono);font-size:12px}
+.popbox li.pre{color:var(--teal)}
+.colrow{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;font-size:13.5px}
+.colrow:hover{background:rgba(255,255,255,.06)}
+.colrow.drag{opacity:.4}
+.colrow label{flex:1;display:flex;gap:8px;align-items:center;cursor:pointer;min-width:0}
+.colrow label span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.colrow .grip{cursor:grab;color:var(--dim)}
+input[type=checkbox]{accent-color:var(--amber);width:16px;height:16px}
+.popfoot{display:flex;gap:6px;padding:8px;border-top:1px solid var(--line);flex-wrap:wrap}
+.tinfo{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:4px 2px 10px;color:var(--muted);font-size:13.5px;flex-wrap:wrap}
+.tinfo b{color:var(--text);font-family:var(--mono)}
+.afilters{display:flex;gap:6px;flex-wrap:wrap}
+.afilters .chip{display:inline-flex;gap:6px;align-items:center;padding:3px 10px;background:var(--amber-soft);color:var(--amber);border-color:var(--amber-line)}
+.twrap{overflow:auto;border:1px solid var(--line);border-radius:var(--r);background:rgba(10,14,20,.6);max-height:calc(100vh - 290px);min-height:200px}
+table{border-collapse:separate;border-spacing:0;width:100%;font-size:13.5px}
+thead th{position:sticky;top:0;z-index:2;background:#151c28;text-align:start;padding:11px 14px;font-weight:600;color:#c6d0df;white-space:nowrap;border-bottom:1px solid var(--line2);cursor:pointer;user-select:none}
+thead th:hover{color:var(--amber)}
+thead th .ic{width:14px;height:14px;margin-inline-start:6px;vertical-align:-2px;color:var(--amber)}
+tbody td{padding:10px 14px;border-bottom:1px solid var(--line);max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+tbody tr{cursor:pointer;transition:background .15s}
+tbody tr:hover{background:rgba(255,178,36,.06)}
+td.num{font-family:var(--mono)}
+.locpill{font-family:var(--mono);font-weight:700;color:var(--amber);background:var(--amber-soft);border:1px solid var(--amber-line);padding:1px 9px;border-radius:7px;font-size:12.5px}
+.nul{color:var(--dim)}
+.pager{display:flex;justify-content:center;align-items:center;gap:6px;margin-top:14px;flex-wrap:wrap}
+.pager button{min-width:36px;height:36px;padding:0 10px;border-radius:9px;background:var(--panel);border:1px solid var(--line);font-family:var(--mono);font-size:13px}
+.pager button:hover{border-color:var(--line2)}
+.pager button.on{background:var(--amber);color:#1a1100;border-color:transparent;font-weight:700}
+.pager button[disabled]{opacity:.35;pointer-events:none}
+.pager select{height:36px;padding:0 8px;border-radius:9px;background:var(--panel);border:1px solid var(--line);margin-inline-start:10px}
+.pager select option{background:#141b26}
+
+/* dashboard */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:18px}
+.tile{padding:16px 18px;border-radius:16px;background:var(--panel);border:1px solid var(--line);display:flex;flex-direction:column;gap:6px;text-align:start;transition:.2s}
+button.tile:hover{border-color:var(--amber-line);transform:translateY(-2px)}
+.tile .tl{display:flex;align-items:center;gap:9px;color:var(--muted);font-size:13.5px}
+.tile .tl .ic{width:18px;height:18px;color:var(--amber)}
+.tile .tv{font-family:var(--mono);font-size:30px;font-weight:700;line-height:1.1}
+.tile .tv small{font-size:14px;color:var(--muted);font-weight:500;font-family:var(--sans)}
+.tile .tn{font-size:12.5px;color:var(--dim)}
+.tile.warnt .tv{color:var(--warn)}
+.tile.date .tv{font-size:19px;font-family:var(--sans);font-weight:600}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px}
+.panel{padding:18px;border-radius:16px;background:var(--panel);border:1px solid var(--line)}
+.panel h3{font-size:15.5px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.bars{display:flex;flex-direction:column;gap:9px}
+.bar{display:grid;grid-template-columns:110px 1fr 52px;gap:10px;align-items:center;font-size:13.5px;width:100%;text-align:start;border-radius:8px;padding:2px 4px}
+.bar:hover{background:rgba(255,255,255,.05)}
+.bar span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar .tr{height:10px;border-radius:9px;background:rgba(255,255,255,.07);overflow:hidden}
+.bar .fl{height:100%;width:0;border-radius:9px;background:linear-gradient(90deg,var(--amber),#ff8a1f);transition:width .9s cubic-bezier(.2,.8,.2,1)}
+.bars.teal .fl{background:linear-gradient(90deg,var(--teal),#38bdf8)}
+.bar em{font-style:normal;font-family:var(--mono);color:var(--muted);text-align:end}
+
+/* data page */
+.drop{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;padding:38px 20px;border:2px dashed var(--line2);border-radius:20px;background:var(--panel);transition:.25s;cursor:pointer}
+.drop:hover,.drop.over{border-color:var(--amber);background:var(--amber-soft)}
+.drop .big{width:64px;height:64px;border-radius:18px;display:grid;place-items:center;background:var(--amber-soft);color:var(--amber)}
+.drop .big .ic{width:30px;height:30px}
+.drop h3{font-size:18px}
+.dgrid{display:grid;grid-template-columns:1.1fr .9fr;gap:16px;margin-top:16px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;font-size:14px}
+.kv dt{color:var(--muted)}
+.kv dd{font-weight:500;word-break:break-word}
+.acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.cols{max-height:420px;overflow:auto;border-radius:10px;border:1px solid var(--line)}
+.cols table td,.cols table th{padding:7px 12px}
+.cols thead th{cursor:default;position:sticky}
+.role{font-size:12px;padding:1px 9px;border-radius:99px;background:var(--teal-soft);color:var(--teal);white-space:nowrap}
+.role.loc{background:var(--amber-soft);color:var(--amber);display:inline-block;border:0;padding:1px 9px;overflow:visible}
+.role.loc::after{display:none}
+.role.x{background:rgba(255,255,255,.06);color:var(--muted)}
+
+/* drawer / modal / toast */
+.scrim{position:fixed;inset:0;background:rgba(3,5,9,.6);backdrop-filter:blur(3px);z-index:60;opacity:0;pointer-events:none;transition:opacity .25s}
+.scrim.on{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;bottom:0;left:0;width:min(480px,100vw);z-index:70;background:#101722;border-inline-end:1px solid var(--line2);transform:translateX(-102%);transition:transform .32s cubic-bezier(.2,.8,.2,1);display:flex;flex-direction:column;box-shadow:30px 0 80px rgba(0,0,0,.5)}
+.drawer.on{transform:none}
+.dh{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:18px 18px 12px;border-bottom:1px solid var(--line)}
+.dh h3{font-size:17px;line-height:1.5}
+.db{overflow:auto;padding:16px 18px 30px;display:flex;flex-direction:column;gap:16px}
+.sec h4{font-size:13px;color:var(--muted);margin-bottom:8px;font-weight:600}
+.row{display:flex;justify-content:space-between;gap:14px;align-items:center;padding:8px 0;border-bottom:1px dashed var(--line);font-size:14px}
+.row span:first-child{color:var(--muted);flex:none;max-width:45%}
+.row span:last-child{display:flex;align-items:center;gap:6px;text-align:end;word-break:break-word;min-width:0}
+.same{display:flex;flex-direction:column;gap:6px}
+.same button{display:flex;justify-content:space-between;gap:10px;padding:9px 12px;border-radius:10px;background:var(--panel);border:1px solid var(--line);text-align:start;font-size:13.5px}
+.same button:hover{border-color:var(--amber-line)}
+.modal{position:fixed;inset:0;z-index:80;display:grid;place-items:center;padding:16px;background:rgba(3,5,9,.65);backdrop-filter:blur(4px);animation:fadein .2s both}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+.mbox{width:min(640px,100%);max-height:92vh;display:flex;flex-direction:column;background:#111823;border:1px solid var(--line2);border-radius:18px;box-shadow:0 40px 100px rgba(0,0,0,.6);animation:pop .25s cubic-bezier(.2,.9,.3,1.2) both}
+.mbox.wide{width:min(780px,100%)}
+@keyframes pop{from{opacity:0;transform:scale(.95) translateY(10px)}to{opacity:1;transform:none}}
+.mh{padding:18px 20px 10px;display:flex;justify-content:space-between;align-items:center}
+.mh h3{font-size:18px}
+.mb{padding:6px 20px 14px;overflow:auto;display:flex;flex-direction:column;gap:12px}
+.mf{padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-start;flex-wrap:wrap}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.stat{padding:11px 13px;border-radius:11px;background:var(--panel);border:1px solid var(--line)}
+.stat b{display:block;font-family:var(--mono);font-size:22px}
+.stat small{color:var(--muted)}
+.stat.good b{color:var(--ok)}.stat.warnx b{color:var(--warn)}
+.wlist{list-style:none;display:flex;flex-direction:column;gap:6px;font-size:13.5px}
+.wlist li{display:flex;gap:8px;padding:8px 11px;border-radius:9px;background:var(--amber-soft);color:#ffe2a8}
+.wlist li.ok{background:rgba(61,220,151,.1);color:#b9f3d8}
+.maprow{display:grid;grid-template-columns:150px 1fr;gap:10px;align-items:center;font-size:14px}
+.maprow select{width:100%;padding:8px 10px;border-radius:9px;background:rgba(255,255,255,.06);border:1px solid var(--line);outline:0}
+.maprow select option{background:#141b26}
+.maprow.miss select{border-color:var(--amber)}
+.toasts{position:fixed;bottom:22px;inset-inline:0;display:flex;flex-direction:column;align-items:center;gap:8px;z-index:100;pointer-events:none;padding:0 14px}
+.toast{display:flex;align-items:center;gap:10px;padding:11px 16px;border-radius:12px;background:#1a2331;border:1px solid var(--line2);box-shadow:0 14px 40px rgba(0,0,0,.5);animation:pop .25s both;max-width:min(520px,100%);font-size:14px}
+.toast.ok .ic{color:var(--ok)}.toast.err .ic{color:var(--danger)}.toast.err{border-color:rgba(255,107,107,.5)}
+.busy{position:fixed;inset:0;z-index:90;display:grid;place-items:center;background:rgba(3,5,9,.7);backdrop-filter:blur(4px)}
+.busy div{display:flex;flex-direction:column;align-items:center;gap:14px;padding:26px 34px;border-radius:18px;background:#121a26;border:1px solid var(--line2)}
+.spin{width:34px;height:34px;border-radius:50%;border:3px solid var(--line2);border-top-color:var(--amber);animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.dropall{position:fixed;inset:0;z-index:95;display:none;place-items:center;background:rgba(255,178,36,.12);backdrop-filter:blur(5px);border:4px dashed var(--amber);font-size:24px;font-weight:700;color:var(--amber)}
+.dropall.on{display:grid}
+.warnbar{margin-bottom:16px}
+
+/* responsive */
+@media (max-width:1100px){
+  :root{--side:76px}
+  .brand div:last-child,.nav a span,.dbcard{display:none}
+  .brand{padding:6px 7px 18px}.nav a{justify-content:center}
+  .nav a.on::before{inset-inline-start:-14px}
+  .bulk-grid{grid-template-columns:1fr}
+  .bulk-box{position:static}
+}
+@media (max-width:760px){
+  .app{display:block}
+  .side{position:fixed;top:auto;bottom:0;left:0;right:0;height:auto;z-index:50;flex-direction:row;padding:6px 8px calc(6px + env(safe-area-inset-bottom));border-inline-end:0;border-top:1px solid var(--line2);background:rgba(10,14,20,.92)}
+  .brand,.side .grow{display:none}
+  .nav{display:flex;width:100%;justify-content:space-around}
+  .nav a{flex-direction:column;gap:2px;padding:6px 8px;font-size:10.5px}
+  .nav a span{display:block}
+  .nav a.on::before{display:none}
+  .main{padding:16px 14px 100px}
+  .two,.dgrid,.bulk-grid{grid-template-columns:1fr}
+  .bulk-box{position:static}
+  .searchbox{height:58px}.searchbox input{font-size:18px}
+  .meta3{grid-template-columns:1fr 1fr 1fr}
+  .bar{grid-template-columns:84px 1fr 44px}
+  .combo-btn{min-width:0;flex:1}
+  .tbar .pop{flex:1 1 44%}.popbox{inset-inline-start:auto;inset-inline-end:0}
+  .twrap{max-height:none}
+  .maprow{grid-template-columns:1fr}
+  .toasts{bottom:86px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+<symbol id="i-bulk" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></symbol>
+<symbol id="i-table" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 4v16"/></symbol>
+<symbol id="i-dash" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></symbol>
+<symbol id="i-data" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></symbol>
+<symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></symbol>
+<symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v12M7 11l5 5 5-5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></symbol>
+<symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></symbol>
+<symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+<symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+<symbol id="i-eyeoff" viewBox="0 0 24 24"><path d="M3 3l18 18M10.6 5.1A9.7 9.7 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4M6.5 6.6C3.6 8.4 2 12 2 12s3.5 7 10 7c1.7 0 3.2-.4 4.5-1M9.9 9.9a3 3 0 0 0 4.2 4.2"/></symbol>
+<symbol id="i-cols" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/></symbol>
+<symbol id="i-chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.01"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17v.01"/></symbol>
+<symbol id="i-box" viewBox="0 0 24 24"><path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5z"/><path d="M3 7.5 12 12l9-4.5M12 12v9"/></symbol>
+<symbol id="i-car" viewBox="0 0 24 24"><path d="M4 16v-4l2-5h12l2 5v4"/><path d="M3 16h18v3H3z"/><path d="M7 12h10"/></symbol>
+<symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></symbol>
+<symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
+<symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></symbol>
+<symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+<symbol id="i-down" viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></symbol>
+<symbol id="i-grip" viewBox="0 0 24 24"><circle cx="9" cy="6" r="1.2"/><circle cx="15" cy="6" r="1.2"/><circle cx="9" cy="12" r="1.2"/><circle cx="15" cy="12" r="1.2"/><circle cx="9" cy="18" r="1.2"/><circle cx="15" cy="18" r="1.2"/></symbol>
+<symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13l4 5M13 13l-4 5"/></symbol>
+<symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></symbol>
+<symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+</defs></svg>
+
+<div class="app">
+  <aside class="side">
+    <div class="brand"><div class="logo"><svg class="ic"><use href="#i-bolt"/></svg></div><div><b>Auto Parts</b><small>Smart Finder</small></div></div>
+    <nav class="nav" id="nav">
+      <a href="#/search" data-v="search"><svg class="ic"><use href="#i-search"/></svg><span>بحث سريع</span></a>
+      <a href="#/bulk" data-v="bulk"><svg class="ic"><use href="#i-bulk"/></svg><span>بحث متعدد</span></a>
+      <a href="#/table" data-v="table"><svg class="ic"><use href="#i-table"/></svg><span>كل الأصناف</span></a>
+      <a href="#/dashboard" data-v="dashboard"><svg class="ic"><use href="#i-dash"/></svg><span>لوحة التحكم</span></a>
+      <a href="#/data" data-v="data"><svg class="ic"><use href="#i-data"/></svg><span>البيانات</span></a>
+    </nav>
+    <div class="grow"></div>
+    <div class="dbcard" id="dbcard"></div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <h2 id="ptitle"></h2>
+      <div class="top-actions">
+        <button class="btn" id="priceToggle" title="إظهار أسعار البيع في البطاقات"><svg class="ic"><use href="#i-eyeoff"/></svg><span>الأسعار</span></button>
+        <button class="btn primary" id="topImport"><svg class="ic"><use href="#i-upload"/></svg><span>رفع Excel</span></button>
+      </div>
+    </div>
+    <div id="storeWarn"></div>
+
+    <section class="view" id="v-search">
+      <div class="hero">
+        <h1>اكتب أي جزء من كود القطعة أو رقمها أو اسمها</h1>
+        <p>تظهر النتائج أثناء الكتابة، مع مكان القطعة في المخزن.</p>
+        <div class="searchbox">
+          <svg class="ic"><use href="#i-search"/></svg>
+          <input id="q" type="search" autocomplete="off" autocapitalize="off" spellcheck="false" dir="auto" placeholder="كود، Part Number، اسم، ماركة، سيارة، موديل، موقع…" aria-label="بحث">
+          <button class="cp" id="qclear" hidden aria-label="مسح"><svg class="ic"><use href="#i-x"/></svg></button>
+          <kbd>/</kbd>
+        </div>
+        <div class="chips" id="scopeChips"></div>
+        <div class="tryrow" id="tryrow"></div>
+      </div>
+      <div id="sbanner"></div>
+      <div class="rmeta" id="rmeta"></div>
+      <div class="cards" id="results"></div>
+      <div class="more" id="more"></div>
+      <div id="sempty"></div>
+    </section>
+
+    <section class="view" id="v-bulk"></section>
+
+    <section class="view" id="v-table">
+      <div class="tbar" id="tbar">
+        <label class="tsearch"><svg class="ic"><use href="#i-search"/></svg><input id="tq" type="search" autocomplete="off" dir="auto" placeholder="ابحث داخل الجدول…"></label>
+        <div class="pop" id="f-car"></div><div class="pop" id="f-brand"></div><div class="pop" id="f-group"></div><div class="pop" id="f-loc"></div><div class="pop" id="f-stock"></div>
+        <div class="pop" id="colpop">
+          <button class="combo-btn" id="colbtn"><span style="display:flex;gap:8px;align-items:center"><svg class="ic"><use href="#i-cols"/></svg> الأعمدة</span><svg class="ic"><use href="#i-chev"/></svg></button>
+          <div class="popbox" id="colbox" style="width:320px"><ul id="collist" style="padding:6px"></ul>
+            <div class="popfoot"><button class="btn sm" data-c="basic">الأساسية</button><button class="btn sm" data-c="all">إظهار الكل</button><button class="btn sm" data-c="reset">استعادة الترتيب</button></div></div>
+        </div>
+        <button class="btn" id="texport"><svg class="ic"><use href="#i-download"/></svg><span>تصدير النتائج</span></button>
+      </div>
+      <div class="tinfo"><div id="tcount"></div><div class="afilters" id="afilters"></div></div>
+      <div class="twrap"><table><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
+      <div class="pager" id="pager"></div>
+      <div id="tempty"></div>
+    </section>
+
+    <section class="view" id="v-dashboard"></section>
+    <section class="view" id="v-data"></section>
+  </main>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" aria-label="تفاصيل الصنف"></aside>
+<div class="toasts" id="toasts"></div>
+<div class="dropall" id="dropall">أفلت ملف Excel هنا</div>
+<input type="file" id="file" accept=".xlsx,.xls,.xlsm,.csv" hidden>
+
+<script>
+'use strict';
+(() => {
+/* =========================================================
+   إعداد ملف الإكسل الثابت في نفس المجلد (غيّر الاسم هنا إذا لزم)
+   ========================================================= */
+const DEFAULT_EXCEL_FILES = ['data.xlsx', 'parts.xlsx', 'stock.xlsx', 'inventory.xlsx'];
+
+/* =========================================================
+   0) أدوات عامة
+   ========================================================= */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ic = n => `<svg class="ic"><use href="#i-${n}"/></svg>`;
+const fmt = n => Number(n).toLocaleString('en-US', {maximumFractionDigits: 2});
+const isEmpty = v => v === null || v === undefined || (typeof v === 'string' && v.trim() === '');
+const show = v => v instanceof Date ? v.toISOString().slice(0, 10) : (isEmpty(v) ? '' : String(v).trim());
+const tick = () => new Promise(r => setTimeout(r, 30));
+const fmtDate = iso => { try { return new Date(iso).toLocaleString('ar-EG-u-nu-latn', {dateStyle: 'medium', timeStyle: 'short'}); } catch { return iso; } };
+
+/* تطبيع النص للبحث: عربي/إنجليزي، حالة الأحرف، الأرقام الهندية، الهمزات */
+function norm(s) {
+  return String(s ?? '')
+    .replace(/[ً-ٰٟـ]/g, '')
+    .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d))
+    .replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
+    .replace(/[أإآٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/ؤ/g, 'و').replace(/ئ/g, 'ي')
+    .toLowerCase().replace(/\s+/g, ' ').trim();
+}
+const compact = s => s.replace(/[^\p{L}\p{N}]+/gu, '');
+
+function toast(msg, kind = 'ok') {
+  const t = document.createElement('div');
+  t.className = 'toast ' + kind;
+  t.innerHTML = ic(kind === 'err' ? 'alert' : 'check') + `<span>${esc(msg)}</span>`;
+  $('#toasts').appendChild(t);
+  setTimeout(() => { t.style.transition = 'opacity .3s'; t.style.opacity = 0; setTimeout(() => t.remove(), 300); }, kind === 'err' ? 5200 : 2200);
+}
+function busy(text) {
+  const b = document.createElement('div');
+  b.className = 'busy';
+  b.innerHTML = `<div><span class="spin"></span><b>${esc(text)}</b></div>`;
+  document.body.appendChild(b);
+  return { set: t => $('b', b).textContent = t, close: () => b.remove() };
+}
+function openModal({title, html, actions = [], wide = false}) {
+  const m = document.createElement('div');
+  m.className = 'modal';
+  m.innerHTML = `<div class="mbox ${wide ? 'wide' : ''}" role="dialog" aria-modal="true"><div class="mh"><h3>${esc(title)}</h3><button class="cp" data-x aria-label="إغلاق">${ic('x')}</button></div><div class="mb">${html}</div><div class="mf"></div></div>`;
+  const close = () => { m.remove(); document.removeEventListener('keydown', onKey); };
+  const onKey = e => { if (e.key === 'Escape') close(); };
+  document.addEventListener('keydown', onKey);
+  const mf = $('.mf', m);
+  actions.forEach(a => {
+    const b = document.createElement('button');
+    b.className = 'btn ' + (a.kind || '');
+    b.innerHTML = (a.icon ? ic(a.icon) : '') + esc(a.label);
+    b.onclick = async () => { if (a.onClick) { const r = await a.onClick(m); if (r === false) return; } close(); };
+    mf.appendChild(b);
+  });
+  if (!actions.length) mf.remove();
+  $('[data-x]', m).onclick = close;
+  m.addEventListener('mousedown', e => { if (e.target === m) close(); });
+  document.body.appendChild(m);
+  return { el: m, close };
+}
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); }
+  catch {
+    const ta = document.createElement('textarea'); ta.value = text; ta.style.cssText = 'position:fixed;opacity:0';
+    document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch {} ta.remove();
+  }
+}
+
+/* =========================================================
+   1) التخزين المحلي IndexedDB
+   ========================================================= */
+const DB = {
+  db: null, ok: false,
+  async open() {
+    if (!window.indexedDB) throw new Error('IndexedDB غير مدعوم');
+    await new Promise((res, rej) => {
+      const r = indexedDB.open('AutoPartsSmartFinder', 1);
+      r.onupgradeneeded = () => { const d = r.result; ['meta', 'records', 'backup'].forEach(n => { if (!d.objectStoreNames.contains(n)) d.createObjectStore(n); }); };
+      r.onsuccess = () => { this.db = r.result; res(); };
+      r.onerror = () => rej(r.error);
+      r.onblocked = () => rej(new Error('blocked'));
+    });
+    this.ok = true;
+  },
+  req(store, mode, fn) {
+    return new Promise((res, rej) => {
+      const tx = this.db.transaction(store, mode);
+      const r = fn(tx.objectStore(store));
+      tx.oncomplete = () => res(r && r.result);
+      tx.onerror = () => rej(tx.error);
+      tx.onabort = () => rej(tx.error || new Error('aborted'));
+    });
+  },
+  get: (s, k) => DB.req(s, 'readonly', o => o.get(k)),
+  getAll: s => DB.req(s, 'readonly', o => o.getAll()),
+  put: (s, k, v) => DB.req(s, 'readwrite', o => o.put(v, k)),
+  commit({rows, metaPuts, backup}) {
+    return new Promise((res, rej) => {
+      const tx = this.db.transaction(['meta', 'records', 'backup'], 'readwrite');
+      tx.oncomplete = () => res();
+      tx.onerror = () => rej(tx.error);
+      tx.onabort = () => rej(tx.error || new Error('تم إلغاء الكتابة'));
+      try {
+        if (backup) tx.objectStore('backup').put(backup, 'prev');
+        const rs = tx.objectStore('records');
+        rs.clear();
+        for (let i = 0; i < rows.length; i++) rs.put(rows[i], i);
+        const ms = tx.objectStore('meta');
+        for (const k in metaPuts) ms.put(metaPuts[k], k);
+      } catch (e) { try { tx.abort(); } catch {} rej(e); }
+    });
+  },
+  async wipe() {
+    await new Promise((res, rej) => {
+      const tx = this.db.transaction(['meta', 'records', 'backup'], 'readwrite');
+      ['meta', 'records', 'backup'].forEach(n => tx.objectStore(n).clear());
+      tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+    });
+  }
+};
+
+/* =========================================================
+   2) تعريف وظائف الأعمدة
+   ========================================================= */
+const ROLES = [
+  {k:'code',  label:'كود القطعة',      req:true,  alias:['الكود','كود الصنف','كود القطعة','code','itemcode','sku']},
+  {k:'name',  label:'اسم القطعة',      req:true,  alias:['الاسم','اسم الصنف','اسم القطعة','name','itemname','description']},
+  {k:'pn1',   label:'Part Number 1',   alias:['partno1','partnumber1','pn1','رقم القطعة 1','partno','partnumber']},
+  {k:'pn2',   label:'Part Number 2',   alias:['partno2','partnumber2','pn2','رقم القطعة 2']},
+  {k:'pn3',   label:'Part Number 3',   alias:['partno3','partnumber3','pn3','رقم القطعة 3']},
+  {k:'pn4',   label:'Part Number 4',   alias:['partno4','partnumber4','pn4','رقم القطعة 4']},
+  {k:'loc',   label:'الموقع (مكان التخزين)', req:'soft', alias:['الموقع','مكان التخزين','مكان القطعة','location','bin']},
+  {k:'title', label:'مسمى الصنف',      alias:['مسمى الصنف','المسمى','itemtitle']},
+  {k:'brand', label:'الماركة',         alias:['الماركة','ماركة','brand']},
+  {k:'car',   label:'السيارة',         alias:['السيارة','سيارة','car','vehicle']},
+  {k:'model', label:'الموديل',         alias:['الموديل','موديل','model']},
+  {k:'qty',   label:'الكمية',          alias:['الكمية','الرصيد','qty','quantity','stock']},
+  {k:'price', label:'سعر البيع',       alias:['سعر البيع','price','sellprice']},
+  {k:'reorder', label:'حد الطلب',      alias:['حد الطلب','reorder','reorderlevel','reorderpoint']},
+  {k:'group', label:'المجموعة',        alias:['المجموعة','group']},
+  {k:'subgroup', label:'المجموعة الفرعية', alias:['المجموعة الفرعية','subgroup']},
+  {k:'notes', label:'ملاحظات',         alias:['ملاحظات','notes','note']},
+  {k:'size',  label:'المقاس',          alias:['المقاس','size']},
+  {k:'unit',  label:'الوحدة',          alias:['الوحدة','unit']},
+  {k:'origin',label:'بلد المنشأ',      alias:['بلد المنشأ','origin','country']},
+  {k:'wholesale', label:'سعر الجملة',  alias:['سعر الجملة','wholesale']},
+];
+const ROLE = Object.fromEntries(ROLES.map(r => [r.k, r]));
+const aKey = s => compact(norm(s));
+function detectMapping(headers) {
+  const map = {}, used = new Set();
+  for (const r of ROLES) {
+    const al = new Set(r.alias.map(aKey));
+    const i = headers.findIndex((h, ix) => !used.has(ix) && al.has(aKey(h)));
+    map[r.k] = i; if (i >= 0) used.add(i);
+  }
+  return map;
+}
+function mapFromNames(headers, names) {
+  const auto = detectMapping(headers), map = {};
+  for (const r of ROLES) {
+    const n = names && names[r.k];
+    if (n === null) map[r.k] = -1;
+    else if (typeof n === 'string' && headers.includes(n)) map[r.k] = headers.indexOf(n);
+    else map[r.k] = auto[r.k];
+  }
+  return map;
+}
+const namesFromMap = (headers, map) => Object.fromEntries(ROLES.map(r => [r.k, map[r.k] >= 0 ? headers[map[r.k]] : null]));
+
+/* =========================================================
+   3) الحالة + الفهرس (Index) للبحث السريع
+   ========================================================= */
+const S = {
+  headers: [], rows: [], map: {}, meta: null, backupInfo: null, idx: null, ver: 0,
+  settings: {order: [], hidden: [], pageSize: 50, sort: {col: null, dir: 1}, prices: false}
+};
+const FK = ['code', 'name', 'pn1', 'pn2', 'pn3', 'pn4', 'title', 'brand', 'car', 'model', 'loc', 'notes', 'group', 'size'];
+const SCOPES = {
+  all: null,
+  code: ['code'],
+  pn: ['pn1', 'pn2', 'pn3', 'pn4'],
+  name: ['name', 'title'],
+  car: ['brand', 'car', 'model'],
+  loc: ['loc'],
+};
+const SCOPE_LABEL = {all: 'الكل', code: 'كود القطعة', pn: 'Part Number', name: 'الاسم والمسمى', car: 'الماركة / السيارة / الموديل', loc: 'الموقع'};
+const col = k => (S.map[k] === undefined ? -1 : S.map[k]);
+const cell = (i, k) => { const c = col(k); return c >= 0 ? S.rows[i][c] : null; };
+const num = v => { const n = typeof v === 'number' ? v : parseFloat(String(v ?? '').replace(/,/g, '')); return Number.isFinite(n) ? n : 0; };
+
+function buildIndex() {
+  const N = S.rows.length;
+  const cols = FK.map(k => col(k));
+  const n = {}, c = {};
+  FK.forEach(k => { n[k] = new Array(N); c[k] = new Array(N); });
+  const allN = new Array(N), allC = new Array(N);
+  const f = {car: new Array(N), brand: new Array(N), group: new Array(N), loc: new Array(N)};
+  const qty = new Float64Array(N), reorder = new Float64Array(N), price = new Float64Array(N);
+  const pnMap = new Map();
+  const codeMap = new Map();
+  const cQ = col('qty'), cR = col('reorder'), cP = col('price');
+  for (let i = 0; i < N; i++) {
+    const row = S.rows[i];
+    const ns = new Array(FK.length), cs = new Array(FK.length);
+    for (let j = 0; j < FK.length; j++) {
+      const ci = cols[j];
+      const raw = ci >= 0 ? row[ci] : null;
+      const s = isEmpty(raw) ? '' : norm(show(raw));
+      const cc = compact(s);
+      ns[j] = s; cs[j] = cc;
+      n[FK[j]][i] = s; c[FK[j]][i] = cc;
+      if (j === 0 && cc) { let a = codeMap.get(cc); if (!a) codeMap.set(cc, a = []); a.push(i); }
+      if (j >= 2 && j <= 5 && cc) { let a = pnMap.get(cc); if (!a) pnMap.set(cc, a = []); if (a[a.length - 1] !== i) a.push(i); }
+    }
+    allN[i] = ns.join('\u0001'); allC[i] = cs.join('\u0001');
+    f.car[i] = show(cell(i, 'car')); f.brand[i] = show(cell(i, 'brand')); f.group[i] = show(cell(i, 'group')); f.loc[i] = show(cell(i, 'loc'));
+    qty[i] = cQ >= 0 ? num(row[cQ]) : 0; reorder[i] = cR >= 0 ? num(row[cR]) : 0; price[i] = cP >= 0 ? num(row[cP]) : 0;
+  }
+  S.idx = {n, c, allN, allC, f, qty, reorder, price, pnMap, codeMap, distinct: {}, sortKeys: {}};
+  S.ver++;
+}
+function distinct(kind) {
+  const d = S.idx.distinct;
+  if (d[kind]) return d[kind];
+  const m = new Map();
+  for (const v of S.idx.f[kind]) if (v !== '') m.set(v, (m.get(v) || 0) + 1);
+  return d[kind] = m;
+}
+function locOptions() {
+  const m = distinct('loc');
+  const opts = [...m].sort((a, b) => a[0].localeCompare(b[0], 'en', {numeric: true})).map(([v, c]) => ({value: 'e:' + v, label: v, count: c}));
+  const pre = new Map();
+  for (const [v, c] of m) {
+    const p = v.split('-');
+    for (let k = 1; k < p.length; k++) { const key = p.slice(0, k).join('-'); const o = pre.get(key) || {n: 0, kids: new Set()}; o.n += c; o.kids.add(v); pre.set(key, o); }
+  }
+  const pOpts = [...pre].filter(([, o]) => o.kids.size > 1).sort((a, b) => a[0].localeCompare(b[0], 'en', {numeric: true}))
+    .map(([k, o]) => ({value: 'p:' + k, label: k + '-*', count: o.n, pre: true}));
+  return [{value: '__none__', label: 'بدون موقع', count: S.idx.f.loc.filter(v => v === '').length}, ...pOpts, ...opts];
+}
+const stockState = i => {
+  const q = S.idx.qty[i], r = S.idx.reorder[i];
+  if (q <= 0) return 'zero';
+  if (r > 0 && q <= r) return 'low';
+  return 'ok';
+};
+
+/* =========================================================
+   4) محرك البحث
+   ========================================================= */
+function matchTok(i, fields, t, ct) {
+  for (const k of fields) {
+    if (S.idx.n[k][i].includes(t) || (ct && S.idx.c[k][i].includes(ct))) return true;
+  }
+  return false;
+}
+function runSearch(q, scope = 'all') {
+  const t0 = performance.now();
+  const nq = norm(q);
+  if (!nq) return {ids: null, ms: 0, full: ''};
+  const tokens = nq.split(' ');
+  const ctoks = tokens.map(compact);
+  const full = compact(nq);
+  const N = S.rows.length, I = S.idx;
+  const fields = SCOPES[scope];
+  const ids = [], scores = [];
+  for (let i = 0; i < N; i++) {
+    let ok = true;
+    if (!fields) {
+      const hn = I.allN[i], hc = I.allC[i];
+      for (let k = 0; k < tokens.length; k++) {
+        if (!(hn.includes(tokens[k]) || (ctoks[k] && hc.includes(ctoks[k])))) { ok = false; break; }
+      }
+      if (!ok && tokens.length > 1 && full.length > 2 && hc.includes(full)) ok = true;
+    } else {
+      for (let k = 0; k < tokens.length; k++) { if (!matchTok(i, fields, tokens[k], ctoks[k])) { ok = false; break; } }
+      if (!ok && tokens.length > 1 && full.length > 2 && fields.some(f => I.c[f][i].includes(full))) ok = true;
+    }
+    if (!ok) continue;
+    ids.push(i);
+    let s = 100;
+    if (full) {
+      const cc = I.c.code[i];
+      if (cc === full) s = 1000;
+      else if (I.c.pn1[i] === full || I.c.pn2[i] === full || I.c.pn3[i] === full || I.c.pn4[i] === full) s = 900;
+      else if (I.c.loc[i] === full) s = 520;
+      else if (cc.startsWith(full)) s = 700;
+      else if (I.c.pn1[i].startsWith(full) || I.c.pn2[i].startsWith(full) || I.c.pn3[i].startsWith(full) || I.c.pn4[i].startsWith(full)) s = 600;
+      else if (cc.includes(full)) s = 420;
+      else if (I.c.pn1[i].includes(full) || I.c.pn2[i].includes(full) || I.c.pn3[i].includes(full) || I.c.pn4[i].includes(full)) s = 380;
+      else if (I.n.name[i].startsWith(nq) || I.n.title[i].startsWith(nq)) s = 250;
+    }
+    if (I.qty[i] > 0) s += 5;
+    scores.push(s);
+  }
+  const ord = ids.map((_, j) => j).sort((a, b) => scores[b] - scores[a] || a - b);
+  return {ids: ord.map(j => ids[j]), ms: performance.now() - t0, full};
+}
+
+/* تمييز كلمات البحث داخل النص */
+const VAR = {'ا': 'اأإآٱ', 'ي': 'يىئ', 'ه': 'هة', 'و': 'وؤ'};
+let hlRx = null;
+function setHL(q) {
+  const toks = q.trim().split(/\s+/).map(norm).filter(Boolean);
+  if (!toks.length) { hlRx = null; return; }
+  const parts = toks.map(t => [...t].filter(ch => /[\p{L}\p{N}]/u.test(ch)).map(ch => VAR[ch] ? `[${VAR[ch]}]` : ch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[\\s\\-_./]*')).filter(Boolean);
+  try { hlRx = parts.length ? new RegExp(parts.join('|'), 'gi') : null; } catch { hlRx = null; }
+}
+function hl(text) {
+  const t = String(text);
+  if (!hlRx) return esc(t);
+  hlRx.lastIndex = 0;
+  let out = '', last = 0, m;
+  while ((m = hlRx.exec(t)) && m[0]) { out += esc(t.slice(last, m.index)) + '<mark>' + esc(m[0]) + '</mark>'; last = m.index + m[0].length; }
+  return out + esc(t.slice(last));
+}
+
+/* =========================================================
+   5) الاستيراد والتصدير (SheetJS) + التحميل التلقائي للملف الثابت
+   ========================================================= */
+let xlsxPromise = null;
+function loadScript(src) { return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => { s.remove(); rej(new Error(src)); }; document.head.appendChild(s); }); }
+function ensureXLSX() {
+  if (window.XLSX) return Promise.resolve();
+  if (xlsxPromise) return xlsxPromise;
+  xlsxPromise = (async () => {
+    for (const src of ['xlsx.full.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js']) {
+      try { await loadScript(src); if (window.XLSX) return; } catch {}
+    }
+    xlsxPromise = null;
+    throw new Error('تعذّر تحميل مكتبة SheetJS. تأكد من الاتصال بالإنترنت، أو ضع الملف xlsx.full.min.js بجانب ملف التطبيق.');
+  })();
+  return xlsxPromise;
+}
+
+function parseWorkbook(buf) {
+  const wb = XLSX.read(buf, {type: 'array', cellDates: true});
+  let best = null;
+  for (const name of wb.SheetNames) {
+    const aoa = XLSX.utils.sheet_to_json(wb.Sheets[name], {header: 1, raw: true, defval: null, blankrows: false});
+    if (!best || aoa.length > best.aoa.length) best = {name, aoa};
+  }
+  if (!best || best.aoa.length < 2) throw new Error('الملف لا يحتوي على صفوف بيانات. تأكد أن الصف الأول يحتوي أسماء الأعمدة وأن تحته بيانات.');
+  const aoa = best.aoa;
+  let h = aoa.findIndex((r, i) => i < 15 && r.filter(v => !isEmpty(v)).length >= 2);
+  if (h < 0) h = 0;
+  const head = aoa[h], data = aoa.slice(h + 1);
+  const W = Math.max(head.length, ...data.map(r => r.length));
+  const headers = [], seen = new Map(), notes = [];
+  for (let i = 0; i < W; i++) {
+    let n = isEmpty(head[i]) ? '' : String(head[i]).trim();
+    if (!n) { n = 'عمود ' + (i + 1); notes.push(`العمود رقم ${i + 1} بلا عنوان، سُمّي «${n}».`); }
+    if (seen.has(n)) { const k = seen.get(n) + 1; seen.set(n, k); const n2 = `${n} (${k})`; notes.push(`عنوان «${n}» مكرر، سُمّي «${n2}».`); n = n2; } else seen.set(n, 1);
+    headers.push(n);
+  }
+  return {sheet: best.name, headers, data, notes};
+}
+
+function validate(headers, data, map) {
+  const W = headers.length, rows = [], seen = new Set();
+  const st = {read: data.length, blank: 0, exactDup: 0, noCode: 0, noName: 0, noLoc: 0, badNum: 0, negQty: 0, dupCodes: [], warnings: []};
+  const cC = map.code, cN = map.name, cL = map.loc, cQ = map.qty;
+  for (const r of data) {
+    const row = new Array(W);
+    let any = false;
+    for (let i = 0; i < W; i++) { const v = r[i] === undefined ? null : r[i]; row[i] = v; if (!isEmpty(v)) any = true; }
+    if (!any) { st.blank++; continue; }
+    const key = JSON.stringify(row);
+    if (seen.has(key)) { st.exactDup++; continue; }
+    seen.add(key);
+    if (cC >= 0 && isEmpty(row[cC])) st.noCode++;
+    if (cN >= 0 && isEmpty(row[cN])) st.noName++;
+    if (cL >= 0 && isEmpty(row[cL])) st.noLoc++;
+    if (cQ >= 0 && !isEmpty(row[cQ])) { if (typeof row[cQ] !== 'number' && !Number.isFinite(parseFloat(row[cQ]))) st.badNum++; else if (num(row[cQ]) < 0) st.negQty++; }
+    rows.push(row);
+  }
+  if (cC >= 0) {
+    const cnt = new Map();
+    for (const r of rows) if (!isEmpty(r[cC])) { const k = String(r[cC]).trim(); cnt.set(k, (cnt.get(k) || 0) + 1); }
+    st.dupCodes = [...cnt].filter(([, n]) => n > 1).map(([k]) => k);
+  }
+  return {rows, st};
+}
+
+/* تحميل تلقائي لملف الإكسل الثابت الموجود في نفس المجلد */
+async function tryAutoLoadBundledExcel(silent = true) {
+  try {
+    await ensureXLSX();
+  } catch {
+    return false;
+  }
+  for (const fileName of DEFAULT_EXCEL_FILES) {
+    try {
+      const resp = await fetch('./' + encodeURIComponent(fileName), {cache: 'no-store'});
+      if (!resp.ok) continue;
+      const buf = await resp.arrayBuffer();
+      const parsed = parseWorkbook(buf);
+      const map = detectMapping(parsed.headers);
+      const val = validate(parsed.headers, parsed.data, map);
+      if (!val.rows.length) continue;
+      const meta = {
+        headers: parsed.headers,
+        mapNames: namesFromMap(parsed.headers, map),
+        importedAt: new Date().toISOString(),
+        fileName: fileName + ' (ملف ثابت)',
+        sheetName: parsed.sheet,
+        count: val.rows.length,
+        mode: 'replace',
+        columnCount: parsed.headers.length
+      };
+      if (DB.ok) await DB.commit({rows: val.rows, metaPuts: {main: meta}, backup: null}).catch(() => {});
+      setData(parsed.headers, val.rows, meta);
+      if (!silent) toast(`تم تحميل ${fmt(val.rows.length)} صنف من الملف الثابت (${fileName})`);
+      return true;
+    } catch {}
+  }
+  if (!silent) toast('لم يتم العثور على ملف Excel ثابت (data.xlsx) بجانب الصفحة.', 'err');
+  return false;
+}
+
+function mergeRows(oldH, oldRows, newH, newRows, mapNew) {
+  const H = [...newH];
+  oldH.forEach(h => { if (!H.includes(h)) H.push(h); });
+  const align = (rows, from) => { const ix = H.map(h => from.indexOf(h)); return rows.map(r => ix.map(i => i >= 0 ? r[i] : null)); };
+  const oldA = align(oldRows, oldH), newA = align(newRows, newH);
+  const cCode = H.indexOf(newH[mapNew.code]), cLoc = mapNew.loc >= 0 ? H.indexOf(newH[mapNew.loc]) : -1;
+  const pos = new Map();
+  oldA.forEach((r, i) => { const k = show(r[cCode]); if (k && !pos.has(k)) pos.set(k, i); });
+  let added = 0, updated = 0, keptLoc = 0;
+  for (const r of newA) {
+    const k = show(r[cCode]);
+    if (k && pos.has(k)) {
+      const i = pos.get(k), old = oldA[i];
+      if (cLoc >= 0 && isEmpty(r[cLoc]) && !isEmpty(old[cLoc])) { r[cLoc] = old[cLoc]; keptLoc++; }
+      H.forEach((h, j) => { if (!newH.includes(h)) r[j] = old[j]; });
+      oldA[i] = r; updated++;
+    } else { oldA.push(r); if (k) pos.set(k, oldA.length - 1); added++; }
+  }
+  return {headers: H, rows: oldA, added, updated, keptLoc};
+}
+
+function diffAgainstCurrent(newH, newRows, map) {
+  if (!S.rows.length || col('code') < 0 || map.code < 0) return null;
+  const oldMap = new Map();
+  S.rows.forEach(r => { const k = show(r[col('code')]); if (k && !oldMap.has(k)) oldMap.set(k, r); });
+  const seen = new Set(); let fresh = 0, same = 0, changed = 0;
+  for (const r of newRows) {
+    const k = show(r[map.code]); if (!k) continue; seen.add(k);
+    const o = oldMap.get(k);
+    if (!o) fresh++;
+    else {
+      const sameRow = newH.every((h, i) => { const oi = S.headers.indexOf(h); return oi >= 0 && JSON.stringify(o[oi] ?? null) === JSON.stringify(r[i] ?? null); }) && true;
+      sameRow ? same++ : changed++;
+    }
+  }
+  let gone = 0; for (const k of oldMap.keys()) if (!seen.has(k)) gone++;
+  return {fresh, same, changed, gone};
+}
+
+async function handleFile(file) {
+  if (!file) return;
+  if (!/\.(xlsx|xls|xlsm|csv)$/i.test(file.name)) { toast('الملف غير مدعوم. ارفع ملف Excel بصيغة XLSX أو XLS.', 'err'); return; }
+  const b = busy('جاري قراءة الملف…');
+  let parsed;
+  try {
+    await ensureXLSX();
+    const buf = await file.arrayBuffer();
+    await tick();
+    parsed = parseWorkbook(buf);
+  } catch (e) { b.close(); toast(e.message || 'تعذّرت قراءة الملف', 'err'); return; }
+  b.close();
+
+  let map = mapFromNames(parsed.headers, S.meta && S.meta.mapNames);
+  const missing = ROLES.filter(r => r.req && map[r.k] < 0);
+  if (missing.length) {
+    const ok = await askMapping(parsed.headers, map, missing);
+    if (!ok) return;
+    map = ok;
+  }
+  const b2 = busy('جاري فحص البيانات…');
+  await tick();
+  let val, diff;
+  try { val = validate(parsed.headers, parsed.data, map); diff = diffAgainstCurrent(parsed.headers, val.rows, map); }
+  catch (e) { b2.close(); toast('فشل فحص البيانات: ' + e.message, 'err'); return; }
+  b2.close();
+  if (!val.rows.length) { toast('لم يتم العثور على أي صنف صالح في الملف.', 'err'); return; }
+  showImportPreview(file, parsed, map, val, diff);
+}
+
+function askMapping(headers, map, missing) {
+  return new Promise(resolve => {
+    const opts = sel => `<option value="-1">— لا يوجد —</option>` + headers.map((h, i) => `<option value="${i}" ${i === sel ? 'selected' : ''}>${esc(h)}</option>`).join('');
+    const reqKeys = new Set(missing.map(r => r.k));
+    const html = `<p class="muted">${missing.map(r => r.k === 'loc' ? 'لم أجد عموداً واضحاً لمكان التخزين (الموقع).' : `لم أجد عموداً واضحاً لـ «${r.label}».`).join(' ')} اختر العمود الصحيح من القائمة.</p>` +
+      ROLES.filter(r => ['code', 'name', 'loc', 'qty', 'pn1', 'brand', 'car', 'model'].includes(r.k) || reqKeys.has(r.k)).map(r =>
+        `<div class="maprow ${reqKeys.has(r.k) ? 'miss' : ''}"><label>${esc(r.label)}${r.req === true ? ' *' : ''}</label><select data-r="${r.k}">${opts(map[r.k])}</select></div>`).join('');
+    const m = openModal({title: 'تحديد وظيفة الأعمدة', html, wide: false, actions: [
+      {label: 'متابعة', kind: 'primary', onClick: el => {
+        const nm = {...map};
+        $$('select', el).forEach(s => nm[s.dataset.r] = +s.value);
+        if (nm.code < 0) { toast('اختيار عمود كود القطعة مطلوب.', 'err'); return false; }
+        resolve(nm);
+      }},
+      {label: 'إلغاء', onClick: () => resolve(null)}
+    ]});
+    m.el.querySelector('[data-x]').addEventListener('click', () => resolve(null));
+  });
+}
+
+function showImportPreview(file, parsed, map, val, diff) {
+  const {headers} = parsed, {rows, st} = val;
+  const hasOld = S.rows.length > 0;
+  const warn = [];
+  if (map.loc < 0) warn.push('لا يوجد عمود للموقع في هذا الملف، لن يظهر مكان القطعة.');
+  if (st.noCode) warn.push(`${fmt(st.noCode)} صنف بدون كود (تم استيرادها كما هي).`);
+  if (st.dupCodes.length) warn.push(`${fmt(st.dupCodes.length)} كود مكرر ببيانات مختلفة (تم الاحتفاظ بجميع الصفوف). مثال: ${st.dupCodes.slice(0, 3).join('، ')}`);
+  if (st.exactDup) warn.push(`${fmt(st.exactDup)} صف مكرر بالكامل تم تجاهله.`);
+  if (st.blank) warn.push(`${fmt(st.blank)} صف فارغ تم تجاهله.`);
+  if (st.noName) warn.push(`${fmt(st.noName)} صنف بدون اسم.`);
+  if (st.badNum) warn.push(`${fmt(st.badNum)} قيمة كمية غير رقمية.`);
+  if (st.negQty) warn.push(`${fmt(st.negQty)} صنف بكمية سالبة.`);
+  if (map.loc >= 0 && st.noLoc) warn.push(`${fmt(st.noLoc)} صنف بدون موقع في الملف.`);
+  warn.push(...parsed.notes);
+  const mapped = ROLES.filter(r => map[r.k] >= 0).map(r => `<span class="role ${r.k === 'loc' ? 'loc' : ''}">${esc(r.label)} ← ${esc(headers[map[r.k]])}</span>`).join(' ');
+  const html = `
+    <div class="muted" style="display:flex;gap:8px;align-items:center">${ic('file')}<span class="ltr">${esc(file.name)}</span> · ورقة «${esc(parsed.sheet)}»</div>
+    <div class="stats">
+      <div class="stat good"><b>${fmt(rows.length)}</b><small>صنف جاهز للاستيراد</small></div>
+      <div class="stat"><b>${fmt(headers.length)}</b><small>عمود (يُحفظ كلها)</small></div>
+      ${diff ? `<div class="stat"><b>${fmt(diff.fresh)}</b><small>أصناف جديدة</small></div><div class="stat warnx"><b>${fmt(diff.changed)}</b><small>أصناف تغيّرت بياناتها</small></div><div class="stat"><b>${fmt(diff.gone)}</b><small>أصناف غير موجودة بالملف</small></div>` : ''}
+    </div>
+    <div><div class="muted" style="margin-bottom:6px;font-size:13px">الأعمدة التي تم التعرف عليها:</div><div style="display:flex;gap:6px;flex-wrap:wrap">${mapped}</div></div>
+    ${warn.length ? `<ul class="wlist">${warn.map(w => `<li>${ic('info')}<span>${esc(w)}</span></li>`).join('')}</ul>` : `<ul class="wlist"><li class="ok">${ic('check')}<span>لا توجد ملاحظات على البيانات.</span></li></ul>`}
+    ${hasOld ? `<p class="muted" style="font-size:13px">قبل الاستيراد يتم حفظ نسخة من القاعدة الحالية، ويمكنك استعادتها من صفحة «البيانات». «الدمج» يحدّث الأصناف حسب الكود ويضيف الجديد ويبقي الباقي، وإذا كان الموقع فارغاً في الملف يبقى الموقع القديم.</p>` : ''}`;
+  const actions = [{label: hasOld ? 'استبدال القاعدة بالكامل' : 'استيراد', kind: 'primary', icon: 'upload', onClick: () => applyImport('replace', file, parsed, map, val)}];
+  if (hasOld) actions.push({label: 'دمج وتحديث حسب الكود', icon: 'layers', onClick: () => applyImport('merge', file, parsed, map, val)});
+  actions.push({label: 'إلغاء'});
+  openModal({title: 'مراجعة الاستيراد', html, actions, wide: true});
+}
+
+async function applyImport(mode, file, parsed, map, val) {
+  const b = busy('جاري حفظ البيانات…');
+  await tick();
+  try {
+    let headers = parsed.headers, rows = val.rows, extra = '';
+    let newMap = map;
+    if (mode === 'merge' && S.rows.length) {
+      const mg = mergeRows(S.headers, S.rows, parsed.headers, val.rows, map);
+      headers = mg.headers; rows = mg.rows;
+      newMap = mapFromNames(headers, namesFromMap(parsed.headers, map));
+      extra = `أضيف ${fmt(mg.added)} وحُدّث ${fmt(mg.updated)}`;
+    }
+    const meta = {headers, mapNames: namesFromMap(headers, newMap), importedAt: new Date().toISOString(), fileName: file.name, sheetName: parsed.sheet, count: rows.length, mode, columnCount: headers.length};
+    const metaPuts = {main: meta};
+    let backup = null;
+    if (S.rows.length) {
+      backup = {headers: S.headers, rows: S.rows, meta: S.meta, savedAt: new Date().toISOString()};
+      metaPuts.backupInfo = {savedAt: backup.savedAt, count: S.rows.length, fileName: S.meta && S.meta.fileName};
+    }
+    if (DB.ok) await DB.commit({rows, metaPuts, backup});
+    S.backupInfo = metaPuts.backupInfo || S.backupInfo;
+    setData(headers, rows, meta);
+    b.close();
+    toast(`تم استيراد ${fmt(val.rows.length)} صنف بنجاح` + (extra ? ` (${extra})` : ''));
+    location.hash = '#/search';
+    route();
+  } catch (e) {
+    b.close();
+    console.error(e);
+    toast('فشل الحفظ، وبقيت البيانات السابقة كما هي. ' + (e && e.name === 'QuotaExceededError' ? 'مساحة التخزين في المتصفح ممتلئة.' : (e.message || '')), 'err');
+  }
+}
+
+async function restoreBackup() {
+  if (!DB.ok) return;
+  const b = busy('جاري استعادة النسخة السابقة…');
+  try {
+    const bk = await DB.get('backup', 'prev');
+    if (!bk) throw new Error('لا توجد نسخة سابقة');
+    const cur = {headers: S.headers, rows: S.rows, meta: S.meta, savedAt: new Date().toISOString()};
+    const info = {savedAt: cur.savedAt, count: S.rows.length, fileName: S.meta && S.meta.fileName};
+    await DB.commit({rows: bk.rows, metaPuts: {main: bk.meta, backupInfo: info}, backup: cur});
+    S.backupInfo = info;
+    setData(bk.headers, bk.rows, bk.meta);
+    b.close(); toast('تمت استعادة النسخة السابقة.'); route();
+  } catch (e) { b.close(); toast('تعذّرت الاستعادة: ' + e.message, 'err'); }
+}
+
+async function exportXlsx(headers, rows, name) {
+  try { await ensureXLSX(); } catch (e) { toast(e.message, 'err'); return; }
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows], {cellDates: true});
+  ws['!cols'] = headers.map(h => ({wch: Math.min(40, Math.max(10, h.length + 4))}));
+  const wb = XLSX.utils.book_new();
+  wb.Workbook = {Views: [{RTL: true}]};
+  XLSX.utils.book_append_sheet(wb, ws, 'الأصناف');
+  XLSX.writeFile(wb, name + '_' + new Date().toISOString().slice(0, 10) + '.xlsx');
+  toast(`تم تصدير ${fmt(rows.length)} صنف`);
+}
+
+/* =========================================================
+   6) تطبيق البيانات + الإعدادات
+   ========================================================= */
+function setData(headers, rows, meta) {
+  S.headers = headers; S.rows = rows; S.meta = meta;
+  S.map = mapFromNames(headers, meta && meta.mapNames);
+  buildIndex();
+  reconcileSettings();
+  T.page = 1; T.filters = {}; T.q = ''; T.dirty = true;
+  renderChrome();
+}
+function reconcileSettings() {
+  const st = S.settings, H = S.headers;
+  const known = new Set(st.order || []);
+  const order = (st.order || []).filter(h => H.includes(h));
+  const fresh = H.filter(h => !known.has(h));
+  const defRoles = ['code', 'name', 'pn1', 'pn2', 'pn3', 'pn4', 'title', 'brand', 'car', 'model', 'loc', 'qty', 'price'];
+  const defIdx = new Set(defRoles.filter(k => col(k) >= 0).filter(k => !/^pn[234]$/.test(k) || S.rows.some(r => !isEmpty(r[col(k)]))).map(k => col(k)));
+  const hidden = new Set((st.hidden || []).filter(h => H.includes(h)));
+  fresh.forEach(h => { if (!defIdx.has(H.indexOf(h))) hidden.add(h); });
+  if (!order.length) {
+    const first = defRoles.map(k => col(k)).filter(i => i >= 0).map(i => H[i]);
+    order.push(...first, ...H.filter(h => !first.includes(h)));
+  } else order.push(...fresh);
+  st.order = order; st.hidden = [...hidden];
+  if (st.sort.col && !H.includes(st.sort.col)) st.sort = {col: null, dir: 1};
+}
+let saveT;
+function saveSettings() { clearTimeout(saveT); saveT = setTimeout(() => { if (DB.ok) DB.put('meta', 'settings', S.settings).catch(() => {}); }, 300); }
+
+/* =========================================================
+   7) واجهة: التنقل والإطار العام
+   ========================================================= */
+const TITLES = {
+  search: 'البحث السريع',
+  bulk: 'البحث المتعدد (قائمة أكواد)',
+  table: 'كل الأصناف',
+  dashboard: 'لوحة التحكم',
+  data: 'استيراد وتصدير البيانات'
+};
+let cur = '';
+function route() {
+  const v = (location.hash.match(/#\/(\w+)/) || [])[1];
+  const view = TITLES[v] ? v : 'search';
+  cur = view;
+  $$('.view').forEach(e => e.classList.toggle('on', e.id === 'v-' + view));
+  $$('#nav a').forEach(a => a.classList.toggle('on', a.dataset.v === view));
+  $('#ptitle').textContent = TITLES[view];
+  document.title = TITLES[view] + ' | Auto Parts Smart Finder';
+  if (view === 'search') renderSearch();
+  if (view === 'bulk') renderBulk();
+  if (view === 'table') renderTable();
+  if (view === 'dashboard') renderDashboard();
+  if (view === 'data') renderData();
+  window.scrollTo(0, 0);
+}
+function renderChrome() {
+  const n = S.rows.length;
+  $('#dbcard').innerHTML = n ? `<b>${fmt(n)}</b>صنف محفوظ<br><span style="font-size:11.5px">آخر تحديث: ${esc(fmtDate(S.meta.importedAt))}</span>` : 'لا توجد بيانات بعد';
+  document.body.classList.toggle('prices', !!S.settings.prices);
+  $('#priceToggle').innerHTML = `${ic(S.settings.prices ? 'eye' : 'eyeoff')}<span>الأسعار</span>`;
+}
+function emptyState() {
+  return `<div class="empty"><div class="big">${ic('upload')}</div><h3>ارفع ملف Excel لبدء العمل</h3><p>لا توجد بيانات محفوظة بعد. ضع ملف باسم <b>data.xlsx</b> في نفس مجلد البرنامج للتحميل التلقائي، أو اختر ملفاً يدوياً.</p><div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:18px"><button class="btn primary" data-pick>${ic('upload')}اختيار ملف Excel</button><button class="btn" data-reload-static>${ic('undo')}إعادة قراءة data.xlsx الثابت</button></div></div>`;
+}
+
+/* =========================================================
+   8) شاشة البحث السريع
+   ========================================================= */
+const Q = {q: '', scope: 'all', shown: 30, ids: [], res: null, prevHad: false, raf: 0};
+function renderSearch() {
+  const has = S.rows.length > 0;
+  $('.hero').style.display = has ? '' : 'none';
+  if (!has) { $('#results').innerHTML = ''; $('#rmeta').innerHTML = ''; $('#more').innerHTML = ''; $('#sbanner').innerHTML = ''; $('#sempty').innerHTML = emptyState(); return; }
+  $('#scopeChips').innerHTML = Object.keys(SCOPES).filter(k => k !== 'loc' || col('loc') >= 0).map(k => `<button class="chip ${Q.scope === k ? 'on' : ''}" data-scope="${k}">${SCOPE_LABEL[k]}</button>`).join('');
+  const tr = [];
+  const mid = Math.floor(S.rows.length / 2);
+  const code = show(cell(mid, 'code')); if (code) tr.push(code);
+  for (let i = 0; i < S.rows.length && tr.length < 2; i++) { const p = show(cell(i, 'pn1')); if (p) { tr.push(p); break; } }
+  for (let i = S.rows.length - 1; i >= 0 && tr.length < 3; i--) { const l = show(cell(i, 'loc')); if (l) { tr.push(l); break; } }
+  $('#tryrow').innerHTML = tr.length ? `جرّب: ${tr.map(t => `<button class="try" data-try="${esc(t)}">${esc(t)}</button>`).join('')}` : '';
+  doSearch(true);
+  if (matchMedia('(hover:hover)').matches) $('#q').focus();
+}
+function doSearch(force) {
+  const q = $('#q').value;
+  $('#qclear').hidden = !q;
+  if (!force && q === Q.q && Q.res) return;
+  Q.q = q; Q.shown = 30;
+  $('#sempty').innerHTML = '';
+  const res = runSearch(q, Q.scope);
+  Q.res = res;
+  if (!res.ids) { Q.ids = []; $('#results').innerHTML = ''; $('#more').innerHTML = ''; $('#sbanner').innerHTML = ''; $('#rmeta').innerHTML = `<span>${fmt(S.rows.length)} صنف في القاعدة</span>`; Q.prevHad = false; return; }
+  Q.ids = res.ids;
+  setHL(q);
+  renderResults(true);
+}
+function renderResults(reset) {
+  const ids = Q.ids, box = $('#results');
+  const slice = ids.slice(0, Q.shown);
+  box.classList.toggle('noanim', Q.prevHad && reset);
+  box.innerHTML = slice.map((i, k) => cardHTML(i, k)).join('');
+  Q.prevHad = ids.length > 0;
+  $('#rmeta').innerHTML = ids.length ? `<span><b class="mono">${fmt(ids.length)}</b> نتيجة <span class="muted">· ${Q.res.ms.toFixed(1)} ms</span></span>` : '';
+  $('#more').innerHTML = ids.length > Q.shown ? `<button class="btn" data-more>عرض المزيد (${fmt(ids.length - Q.shown)} متبقٍ)</button>` : '';
+  let bn = '';
+  const same = Q.res.full && S.idx.pnMap.get(Q.res.full);
+  if (same && same.length > 1) bn = `<div class="banner">${ic('layers')}<span>يوجد <b>${same.length}</b> أصناف بنفس رقم القطعة. اختر الصنف المناسب من النتائج.</span></div>`;
+  $('#sbanner').innerHTML = bn;
+  $('#sempty').innerHTML = ids.length ? '' : `<div class="empty"><div class="big">${ic('search')}</div><h3>لا توجد نتائج لـ «${esc(Q.q.trim())}»</h3><p>جرّب جزءاً أقصر من الكود أو الرقم، أو غيّر نطاق البحث إلى «الكل».</p></div>`;
+}
+function pnList(i) {
+  return ['pn1', 'pn2', 'pn3', 'pn4'].map((k, j) => ({n: j + 1, v: show(cell(i, k))})).filter(p => p.v);
+}
+function cardHTML(i, k) {
+  const code = show(cell(i, 'code')), name = show(cell(i, 'name')), title = show(cell(i, 'title')), loc = show(cell(i, 'loc'));
+  const brand = show(cell(i, 'brand')), car = show(cell(i, 'car')), model = show(cell(i, 'model')), unit = show(cell(i, 'unit'));
+  const qv = cell(i, 'qty'), st = stockState(i), price = S.idx.price[i];
+  const cp = (t, tip = 'نسخ') => `<button class="cp" data-copy="${esc(t)}" title="${tip}" aria-label="${tip}">${ic('copy')}</button>`;
+  const pns = pnList(i);
+  const stLabel = st === 'zero' ? 'نفد' : st === 'low' ? 'وصل حد الطلب' : 'متوفر';
+  return `<article class="card" data-i="${i}" style="--d:${Math.min(k, 10)}">
+    <div class="c-top"><span class="codepill"><span class="ltr">${hl(code) || '—'}</span>${code ? cp(code, 'نسخ الكود') : ''}</span><span class="qty ${st === 'zero' ? 'zero' : st === 'low' ? 'low' : ''}"><i></i>${stLabel}</span></div>
+    <div class="c-name" dir="auto">${hl(name) || '<span class="nul">بدون اسم</span>'}</div>
+    ${title && title !== name ? `<span class="c-title" dir="auto">${hl(title)}</span>` : ''}
+    <div class="pns">${pns.length ? pns.map(p => `<span class="pn"><small>PN${p.n}</small><span class="mono ltr">${hl(p.v)}</span>${cp(p.v, 'نسخ رقم القطعة')}</span>`).join('') : '<span class="nopn">لا يوجد Part Number</span>'}</div>
+    ${col('loc') >= 0 ? `<div class="loc ${loc ? '' : 'none'}"><span class="pin">${ic('pin')}</span><div><small>الموقع في المخزن</small><div class="lv">${loc ? `<span class="ltr">${hl(loc)}</span>` : 'غير محدد'}</div></div>${loc ? cp(loc, 'نسخ الموقع') : ''}</div>` : ''}
+    <div class="meta3"><div><small>الماركة</small><span dir="auto" title="${esc(brand)}">${hl(brand) || '—'}</span></div><div><small>السيارة</small><span dir="auto" title="${esc(car)}">${hl(car) || '—'}</span></div><div><small>الموديل</small><span dir="auto" title="${esc(model)}">${hl(model) || '—'}</span></div></div>
+    <div class="c-foot"><div><small class="muted">الكمية المتاحة</small><div class="qbig">${isEmpty(qv) ? '—' : esc(show(qv))}<small>${esc(unit)}</small></div></div>
+      ${col('price') >= 0 ? `<span class="price" data-price title="اضغط لإظهار السعر"><small>سعر البيع</small><span class="pv">${fmt(price)}</span></span>` : ''}</div>
+  </article>`;
+}
+
+/* =========================================================
+   8-ب) شاشة البحث المتعدد (قائمة أكواد تحت بعض)
+   ========================================================= */
+const B = {raw: '', rows: []};
+
+function lookupBulkQuery(rawLine) {
+  const nq = norm(rawLine);
+  const full = compact(nq);
+  if (!full && !nq) return [];
+  const I = S.idx;
+
+  // 1) مطابقة تامة للكود
+  if (full && I.codeMap.has(full)) return I.codeMap.get(full);
+  // 2) مطابقة تامة لأي Part Number
+  if (full && I.pnMap.has(full)) return I.pnMap.get(full);
+
+  // 3) مطابقة جزئية ذكية داخل الكود أو الـ Part Number أو الاسم
+  const hits = [];
+  for (let i = 0; i < S.rows.length; i++) {
+    if (full && (
+      I.c.code[i].includes(full) ||
+      I.c.pn1[i].includes(full) ||
+      I.c.pn2[i].includes(full) ||
+      I.c.pn3[i].includes(full) ||
+      I.c.pn4[i].includes(full)
+    )) {
+      hits.push(i);
+    } else if (nq.length >= 2 && (I.n.name[i].includes(nq) || I.n.title[i].includes(nq))) {
+      hits.push(i);
+    }
+  }
+  return hits;
+}
+
+function renderBulk() {
+  const v = $('#v-bulk');
+  if (!S.rows.length) { v.innerHTML = emptyState(); return; }
+  v.innerHTML = `
+    <div class="bulk-grid">
+      <div class="bulk-box">
+        <h3>${ic('bulk')}<span>قائمة الأكواد / أرقام القطع</span></h3>
+        <p class="muted" style="font-size:13px">اكتب أو الصق كل كود أو Part Number في سطر مستقل، وستظهر النتائج فوراً.</p>
+        <textarea id="bulkInput" spellcheck="false" placeholder="اكتب كل كود في سطر تحت بعضه...&#10;مثال:&#10;12345&#10;96549788&#10;AB-204">${esc(B.raw)}</textarea>
+        <div class="bulk-acts">
+          <button class="btn primary" id="bulkRun">${ic('search')}<span>بحث القائمة</span></button>
+          <button class="btn" id="bulkClear">${ic('x')}<span>مسح</span></button>
+        </div>
+      </div>
+      <div id="bulkOut"></div>
+    </div>`;
+
+  const ta = $('#bulkInput');
+  ta.addEventListener('input', () => { B.raw = ta.value; computeBulk(); });
+  $('#bulkRun').onclick = () => { B.raw = ta.value; computeBulk(); };
+  $('#bulkClear').onclick = () => { B.raw = ''; ta.value = ''; computeBulk(); ta.focus(); };
+  computeBulk();
+  if (matchMedia('(hover:hover)').matches) ta.focus();
+}
+
+function computeBulk() {
+  const out = $('#bulkOut');
+  if (!out) return;
+  const lines = B.raw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  if (!lines.length) {
+    B.rows = [];
+    out.innerHTML = `<div class="empty"><div class="big">${ic('bulk')}</div><h3>قائمة البحث فارغة</h3><p>اكتب أو الصق الأكواد في المربع الجانبي (كل كود في سطر) لعرض الـ Part Number والموقع والكمية لكل صنف دفعة واحدة.</p></div>`;
+    return;
+  }
+
+  const results = [];
+  let foundQueries = 0, missQueries = 0;
+
+  lines.forEach((query, qIdx) => {
+    const matchedIds = lookupBulkQuery(query);
+    if (matchedIds.length) {
+      foundQueries++;
+      matchedIds.forEach((idx, mPos) => {
+        results.push({qIdx: qIdx + 1, query, idx, found: true, multi: matchedIds.length > 1, mPos});
+      });
+    } else {
+      missQueries++;
+      results.push({qIdx: qIdx + 1, query, idx: -1, found: false});
+    }
+  });
+
+  B.rows = results;
+
+  const cp = (t, tip = 'نسخ') => t ? `<button class="cp" data-copy="${esc(t)}" title="${tip}" aria-label="${tip}">${ic('copy')}</button>` : '';
+
+  out.innerHTML = `
+    <div class="bulk-stats">
+      <div class="bulk-badges">
+        <span class="badge">إجمالي السطور: <b class="mono">${fmt(lines.length)}</b></span>
+        <span class="badge ok">موجود: <b class="mono">${fmt(foundQueries)}</b></span>
+        ${missQueries ? `<span class="badge miss">غير موجود: <b class="mono">${fmt(missQueries)}</b></span>` : ''}
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn sm" id="bulkCopyLocs">${ic('copy')}<span>نسخ المواقع</span></button>
+        <button class="btn sm primary" id="bulkExport">${ic('download')}<span>تصدير Excel</span></button>
+      </div>
+    </div>
+    <div class="twrap" style="max-height:calc(100vh - 230px)">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:48px">#</th>
+            <th>الكود المُدخل</th>
+            <th>كود الصنف</th>
+            <th>Part Number</th>
+            <th>الموقع</th>
+            <th>اسم الصنف</th>
+            <th>الكمية</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${results.map(r => {
+            if (!r.found) {
+              return `<tr class="bulk-miss" style="cursor:default">
+                <td class="num muted">${r.qIdx}</td>
+                <td class="num"><span class="ltr">${esc(r.query)}</span></td>
+                <td colspan="5" style="color:var(--danger);font-weight:500">غير موجود في القاعدة</td>
+              </tr>`;
+            }
+            const i = r.idx;
+            const code = show(cell(i, 'code'));
+            const name = show(cell(i, 'name'));
+            const loc = show(cell(i, 'loc'));
+            const qv = cell(i, 'qty');
+            const st = stockState(i);
+            const pns = pnList(i);
+            return `<tr data-i="${i}">
+              <td class="num muted">${r.qIdx}</td>
+              <td class="num"><span class="ltr">${esc(r.query)}</span>${r.multi ? ` <span class="badge dup" style="font-size:11px;padding:1px 7px">تطابق ${r.mPos + 1}</span>` : ''}</td>
+              <td class="num"><span class="ltr" style="font-weight:700">${esc(code) || '—'}</span>${cp(code, 'نسخ الكود')}</td>
+              <td style="white-space:normal;min-width:160px">${pns.length ? `<div class="pn-stack">${pns.map(p => `<span class="pn-tag"><span class="ltr">${esc(p.v)}</span>${cp(p.v, 'نسخ Part Number')}</span>`).join('')}</div>` : '<span class="nul">—</span>'}</td>
+              <td>${loc ? `<span class="locpill ltr">${esc(loc)}</span>${cp(loc, 'نسخ الموقع')}` : '<span class="nul">غير محدد</span>'}</td>
+              <td dir="auto" title="${esc(name)}">${esc(name) || '<span class="nul">—</span>'}</td>
+              <td class="num" style="font-weight:700;color:${st === 'zero' ? 'var(--danger)' : st === 'low' ? 'var(--warn)' : 'var(--ok)'}">${isEmpty(qv) ? '—' : esc(show(qv))}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
+
+  $('#bulkCopyLocs').onclick = async () => {
+    const txt = B.rows.map(r => {
+      if (!r.found) return `${r.query}\tغير موجود`;
+      const code = show(cell(r.idx, 'code'));
+      const pns = pnList(r.idx).map(p => p.v).join(' / ') || '—';
+      const loc = show(cell(r.idx, 'loc')) || 'غير محدد';
+      const name = show(cell(r.idx, 'name'));
+      return `${r.query}\t${code}\t${pns}\t${loc}\t${name}`;
+    }).join('\n');
+    await copyText(txt);
+    toast('تم نسخ الجدول (الكود + Part Number + الموقع)');
+  };
+
+  $('#bulkExport').onclick = () => {
+    const expHeaders = ['م', 'الكود المُدخل', 'كود الصنف', 'Part Number 1', 'Part Number 2', 'Part Number 3', 'Part Number 4', 'الموقع', 'اسم الصنف', 'الماركة', 'السيارة', 'الموديل', 'الكمية', 'سعر البيع'];
+    const expRows = B.rows.map(r => {
+      if (!r.found) return [r.qIdx, r.query, 'غير موجود', '', '', '', '', '', '', '', '', '', '', ''];
+      const i = r.idx;
+      return [
+        r.qIdx,
+        r.query,
+        show(cell(i, 'code')),
+        show(cell(i, 'pn1')),
+        show(cell(i, 'pn2')),
+        show(cell(i, 'pn3')),
+        show(cell(i, 'pn4')),
+        show(cell(i, 'loc')),
+        show(cell(i, 'name')),
+        show(cell(i, 'brand')),
+        show(cell(i, 'car')),
+        show(cell(i, 'model')),
+        isEmpty(cell(i, 'qty')) ? '' : num(cell(i, 'qty')),
+        isEmpty(cell(i, 'price')) ? '' : num(cell(i, 'price'))
+      ];
+    });
+    exportXlsx(expHeaders, expRows, 'AutoParts_Bulk_Lookup');
+  };
+}
+
+/* =========================================================
+   9) تفاصيل الصنف
+   ========================================================= */
+function openDetails(i) {
+  const row = S.rows[i];
+  const code = show(cell(i, 'code')), name = show(cell(i, 'name')), loc = show(cell(i, 'loc'));
+  const cp = t => t ? `<button class="cp" data-copy="${esc(t)}" aria-label="نسخ">${ic('copy')}</button>` : '';
+  const kv = (label, v, o = {}) => { const t = show(v); return `<div class="row"><span>${esc(label)}</span><span>${t ? `<span ${o.ltr ? 'class="ltr mono"' : 'dir="auto"'}>${esc(t)}</span>${o.copy ? cp(t) : ''}` : '<span class="nul">—</span>'}</span></div>`; };
+  const sec = (h, body) => `<div class="sec"><h4>${h}</h4>${body}</div>`;
+  const shown = new Set();
+  const R = (k, label, o) => { if (col(k) < 0) return ''; shown.add(col(k)); return kv(label || ROLE[k].label, cell(i, k), o); };
+  const same = new Set();
+  pnList(i).forEach(p => { (S.idx.pnMap.get(compact(norm(p.v))) || []).forEach(j => { if (j !== i) same.add(j); }); });
+  const dupCode = code ? S.idx.c.code.reduce((a, c, j) => a + (j !== i && c === S.idx.c.code[i] ? 1 : 0), 0) : 0;
+  const html = `
+    <div class="dh"><div><div class="mono ltr" style="color:var(--amber);font-weight:700">${esc(code)}</div><h3 dir="auto">${esc(name)}</h3></div><button class="cp" data-close aria-label="إغلاق">${ic('x')}</button></div>
+    <div class="db">
+      ${col('loc') >= 0 ? `<div class="loc ${loc ? '' : 'none'}"><span class="pin">${ic('pin')}</span><div><small>الموقع في المخزن</small><div class="lv">${loc ? `<span class="ltr">${esc(loc)}</span>` : 'غير محدد'}</div></div>${loc ? cp(loc) : ''}</div>` : ''}
+      ${dupCode ? `<div class="banner warn">${ic('alert')}<span>يوجد ${dupCode} صنف آخر بنفس الكود في القاعدة.</span></div>` : ''}
+      ${sec('التعريف', R('code', null, {ltr: 1, copy: 1}) + R('name') + R('title') + ['pn1', 'pn2', 'pn3', 'pn4'].map(k => R(k, null, {ltr: 1, copy: 1})).join('') + R('notes'))}
+      ${sec('السيارة', R('brand') + R('car') + R('model') + R('size') + R('origin') + R('group') + R('subgroup'))}
+      ${sec('المخزون والأسعار', R('loc', null, {ltr: 1, copy: 1}) + R('qty') + R('unit') + R('reorder') + R('price') + R('wholesale'))}
+      ${same.size ? sec('أصناف بنفس رقم القطعة', `<div class="same">${[...same].slice(0, 12).map(j => `<button data-open="${j}"><span dir="auto">${esc(show(cell(j, 'name')))}</span><span class="mono ltr muted">${esc(show(cell(j, 'code')))}${show(cell(j, 'loc')) ? ' · ' + esc(show(cell(j, 'loc'))) : ''}</span></button>`).join('')}</div>`) : ''}
+      ${sec('جميع الأعمدة كما في ملف Excel', S.headers.map((h, ci) => kv(h, row[ci], {})).join(''))}
+    </div>`;
+  $('#drawer').innerHTML = html;
+  $('#drawer').classList.add('on'); $('#scrim').classList.add('on');
+  $('.db', $('#drawer')).scrollTop = 0;
+}
+function closeDrawer() { $('#drawer').classList.remove('on'); $('#scrim').classList.remove('on'); }
+
+/* =========================================================
+   10) جدول كل الأصناف
+   ========================================================= */
+const T = {q: '', filters: {}, page: 1, view: [], dirty: true, built: false, combos: {}};
+class Combo {
+  constructor(el, label, onChange) {
+    this.el = el; this.label = label; this.onChange = onChange; this.opts = []; this.val = '';
+    el.innerHTML = `<button class="combo-btn"><span><small>${esc(label)}</small><span class="cv">الكل</span></span>${ic('chev')}</button><div class="popbox"><div class="ps"><input placeholder="بحث…" dir="auto"></div><ul></ul></div>`;
+    this.btn = $('.combo-btn', el); this.inp = $('input', el); this.ul = $('ul', el);
+    this.btn.onclick = e => { e.stopPropagation(); const o = !el.classList.contains('open'); closePops(); el.classList.toggle('open', o); if (o) { this.inp.value = ''; this.render(); this.inp.focus(); } };
+    this.inp.oninput = () => this.render();
+    this.ul.onclick = e => { const li = e.target.closest('li'); if (!li) return; this.set(li.dataset.v); this.onChange(this.val); el.classList.remove('open'); };
+    el.querySelector('.popbox').onclick = e => e.stopPropagation();
+  }
+  setOptions(o) { this.opts = o; this.sync(); }
+  set(v) { this.val = v; this.sync(); }
+  sync() {
+    const o = this.opts.find(x => x.value === this.val);
+    $('.cv', this.el).textContent = this.val && o ? o.label : (this.val ? this.val : 'الكل');
+    this.btn.classList.toggle('set', !!this.val);
+  }
+  render() {
+    const t = norm(this.inp.value);
+    const list = this.opts.filter(o => !t || norm(o.label).includes(t)).slice(0, 300);
+    this.ul.innerHTML = `<li data-v="" class="${this.val === '' ? 'on' : ''}"><span>الكل</span></li>` + list.map(o => `<li data-v="${esc(o.value)}" class="${o.pre ? 'pre' : ''} ${o.value === this.val ? 'on' : ''}"><span dir="auto">${esc(o.label)}</span><em>${fmt(o.count)}</em></li>`).join('');
+  }
+}
+function closePops() { $$('.pop.open').forEach(p => p.classList.remove('open')); }
+document.addEventListener('click', closePops);
+
+function buildTableUI() {
+  if (T.built) return;
+  T.built = true;
+  const mk = (id, label, key) => T.combos[key] = new Combo($('#' + id), label, v => { T.filters[key] = v; T.page = 1; T.dirty = true; renderTable(); });
+  mk('f-car', 'السيارة', 'car'); mk('f-brand', 'الماركة', 'brand'); mk('f-group', 'المجموعة', 'group'); mk('f-loc', 'الموقع', 'loc'); mk('f-stock', 'حالة المخزون', 'stock');
+  T.combos.stock.setOptions([{value: 'in', label: 'متوفر', count: 0}, {value: 'zero', label: 'نفد', count: 0}, {value: 'low', label: 'وصل حد الطلب', count: 0}]);
+  let tt; $('#tq').addEventListener('input', e => { clearTimeout(tt); tt = setTimeout(() => { T.q = e.target.value; T.page = 1; T.dirty = true; renderTable(); }, 120); });
+  $('#colbtn').onclick = e => { e.stopPropagation(); const p = $('#colpop'); const o = !p.classList.contains('open'); closePops(); p.classList.toggle('open', o); if (o) renderColList(); };
+  $('#colbox').onclick = e => {
+    e.stopPropagation();
+    const b = e.target.closest('[data-c]'); if (!b) return;
+    const st = S.settings;
+    if (b.dataset.c === 'all') st.hidden = [];
+    if (b.dataset.c === 'basic') { const keep = ['code', 'name', 'pn1', 'title', 'brand', 'car', 'model', 'loc', 'qty', 'price'].map(k => col(k)).filter(i => i >= 0).map(i => S.headers[i]); st.hidden = S.headers.filter(h => !keep.includes(h)); }
+    if (b.dataset.c === 'reset') { st.order = []; st.hidden = []; reconcileSettings(); }
+    saveSettings(); renderColList(); renderTable();
+  };
+  $('#texport').onclick = () => { const rows = T.view.map(i => S.rows[i]); exportXlsx(S.headers, rows, 'AutoParts_filtered'); };
+  $('#afilters').onclick = e => { const b = e.target.closest('[data-rm]'); if (!b) return; if (b.dataset.rm === 'q') { T.q = ''; $('#tq').value = ''; } else { T.filters[b.dataset.rm] = ''; T.combos[b.dataset.rm].set(''); } T.page = 1; T.dirty = true; renderTable(); };
+  $('#thead').onclick = e => {
+    const th = e.target.closest('th'); if (!th) return;
+    const h = th.dataset.h, s = S.settings.sort;
+    if (s.col === h) { if (s.dir === 1) s.dir = -1; else { s.col = null; s.dir = 1; } } else { s.col = h; s.dir = 1; }
+    saveSettings(); T.dirty = true; renderTable();
+  };
+}
+function renderColList() {
+  const st = S.settings, ul = $('#collist');
+  ul.innerHTML = st.order.map((h, k) => `<li class="colrow" draggable="true" data-h="${esc(h)}"><span class="grip">${ic('grip')}</span><label><input type="checkbox" ${st.hidden.includes(h) ? '' : 'checked'}><span>${esc(h)}</span></label><button class="cp" data-mv="-1" aria-label="أعلى">${ic('up')}</button><button class="cp" data-mv="1" aria-label="أسفل">${ic('down')}</button></li>`).join('');
+  ul.style.maxHeight = '300px'; ul.style.overflow = 'auto';
+  let dragH = null;
+  ul.onchange = e => { const h = e.target.closest('.colrow').dataset.h; const s = new Set(st.hidden); e.target.checked ? s.delete(h) : s.add(h); st.hidden = [...s]; saveSettings(); renderTable(); };
+  ul.onclick = e => { const b = e.target.closest('[data-mv]'); if (!b) return; const h = b.closest('.colrow').dataset.h; const i = st.order.indexOf(h), j = i + +b.dataset.mv; if (j < 0 || j >= st.order.length) return; [st.order[i], st.order[j]] = [st.order[j], st.order[i]]; saveSettings(); renderColList(); renderTable(); };
+  ul.ondragstart = e => { dragH = e.target.closest('.colrow').dataset.h; e.target.closest('.colrow').classList.add('drag'); e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', dragH); } catch {} };
+  ul.ondragend = e => { e.target.closest('.colrow')?.classList.remove('drag'); };
+  ul.ondragover = e => e.preventDefault();
+  ul.ondrop = e => { e.preventDefault(); const t = e.target.closest('.colrow'); if (!t || !dragH || t.dataset.h === dragH) return; const o = st.order.filter(h => h !== dragH); o.splice(o.indexOf(t.dataset.h), 0, dragH); st.order = o; saveSettings(); renderColList(); renderTable(); };
+}
+function computeTable() {
+  const f = T.filters, I = S.idx;
+  let base;
+  if (T.q.trim()) { const r = runSearch(T.q, 'all'); base = r.ids; setHL(T.q); } else { base = null; setHL(''); }
+  const N = S.rows.length, out = [];
+  const lf = f.loc || '';
+  const test = i => {
+    if (f.car && I.f.car[i] !== f.car) return false;
+    if (f.brand && I.f.brand[i] !== f.brand) return false;
+    if (f.group && I.f.group[i] !== f.group) return false;
+    if (lf) {
+      const v = I.f.loc[i];
+      if (lf === '__none__') { if (v !== '') return false; }
+      else if (lf.startsWith('e:')) { if (v !== lf.slice(2)) return false; }
+      else if (lf.startsWith('p:')) { const p = lf.slice(2); if (!(v === p || v.startsWith(p + '-'))) return false; }
+    }
+    if (f.stock) { const s = stockState(i); if (f.stock === 'in' ? s === 'zero' : s !== f.stock) return false; }
+    return true;
+  };
+  if (base) { for (const i of base) if (test(i)) out.push(i); } else for (let i = 0; i < N; i++) if (test(i)) out.push(i);
+  const s = S.settings.sort;
+  if (s.col) {
+    const ci = S.headers.indexOf(s.col);
+    let keys = I.sortKeys[ci];
+    if (!keys) {
+      const raw = S.rows.map(r => r[ci]);
+      const numeric = raw.every(v => isEmpty(v) || typeof v === 'number');
+      keys = I.sortKeys[ci] = raw.map(v => isEmpty(v) ? null : numeric ? v : norm(show(v)));
+    }
+    out.sort((a, b) => { const x = keys[a], y = keys[b]; if (x === null && y === null) return a - b; if (x === null) return 1; if (y === null) return -1; return (x < y ? -1 : x > y ? 1 : a - b) * s.dir; });
+  }
+  T.view = out;
+  T.dirty = false;
+}
+function renderTable() {
+  buildTableUI();
+  const has = S.rows.length > 0;
+  $('#tbar').style.display = has ? '' : 'none'; $('.twrap').style.display = has ? '' : 'none';
+  $('.tinfo').style.display = has ? '' : 'none';
+  $('#tempty').innerHTML = has ? '' : emptyState();
+  if (!has) { $('#pager').innerHTML = ''; return; }
+  if (T.combos.car.opts.length === 0 || T.combos.car.ver !== S.ver) {
+    const toOpts = kind => [...distinct(kind)].sort((a, b) => a[0].localeCompare(b[0], 'ar')).map(([v, c]) => ({value: v, label: v, count: c}));
+    T.combos.car.setOptions(toOpts('car')); T.combos.brand.setOptions(toOpts('brand')); T.combos.group.setOptions(toOpts('group')); T.combos.loc.setOptions(locOptions());
+    Object.values(T.combos).forEach(c => c.ver = S.ver);
+    $('#f-car').style.display = col('car') >= 0 ? '' : 'none'; $('#f-brand').style.display = col('brand') >= 0 ? '' : 'none';
+    $('#f-group').style.display = col('group') >= 0 ? '' : 'none'; $('#f-loc').style.display = col('loc') >= 0 ? '' : 'none';
+  }
+  Object.keys(T.combos).forEach(k => T.combos[k].set(T.filters[k] || ''));
+  if ($('#tq').value !== T.q) $('#tq').value = T.q;
+  if (T.dirty) computeTable();
+  const st = S.settings, vis = st.order.filter(h => !st.hidden.includes(h));
+  const total = T.view.length, ps = st.pageSize, pages = Math.max(1, Math.ceil(total / ps));
+  T.page = Math.min(Math.max(1, T.page), pages);
+  const from = (T.page - 1) * ps, slice = T.view.slice(from, from + ps);
+  const cIdx = vis.map(h => S.headers.indexOf(h));
+  const rl = {}; ROLES.forEach(r => { if (col(r.k) >= 0) rl[col(r.k)] = r.k; });
+  $('#thead').innerHTML = `<tr>${vis.map((h, k) => `<th data-h="${esc(h)}" title="ترتيب حسب ${esc(h)}">${esc(h)}${st.sort.col === h ? ic(st.sort.dir === 1 ? 'up' : 'down') : ''}</th>`).join('')}</tr>`;
+  $('#tbody').innerHTML = slice.map(i => `<tr data-i="${i}">${cIdx.map(ci => {
+    const v = S.rows[i][ci], t = show(v), role = rl[ci];
+    if (!t) return '<td class="nul">—</td>';
+    if (role === 'loc') return `<td><span class="locpill ltr">${hl(t)}</span></td>`;
+    if (role === 'qty') { const s = stockState(i); return `<td class="num" style="color:${s === 'zero' ? 'var(--danger)' : s === 'low' ? 'var(--warn)' : 'var(--ok)'}">${esc(t)}</td>`; }
+    if (typeof v === 'number' || ['code', 'pn1', 'pn2', 'pn3', 'pn4'].includes(role)) return `<td class="num" title="${esc(t)}"><span class="ltr">${hl(t)}</span></td>`;
+    return `<td dir="auto" title="${esc(t)}">${hl(t)}</td>`;
+  }).join('')}</tr>`).join('');
+  $('#tcount').innerHTML = `عرض <b>${total ? fmt(from + 1) : 0}–${fmt(Math.min(from + ps, total))}</b> من <b>${fmt(total)}</b> نتيجة${total !== S.rows.length ? ` (من أصل ${fmt(S.rows.length)})` : ''}`;
+  const af = [];
+  if (T.q.trim()) af.push(['q', 'بحث: ' + T.q.trim()]);
+  const lab = {car: 'السيارة', brand: 'الماركة', group: 'المجموعة', loc: 'الموقع', stock: 'المخزون'};
+  Object.keys(lab).forEach(k => { if (T.filters[k]) { const o = T.combos[k].opts.find(x => x.value === T.filters[k]); af.push([k, lab[k] + ': ' + (o ? o.label : T.filters[k])]); } });
+  $('#afilters').innerHTML = af.map(([k, t]) => `<span class="chip">${esc(t)}<button class="cp" style="width:18px;height:18px" data-rm="${k}" aria-label="إزالة">${ic('x')}</button></span>`).join('');
+  const pg = [];
+  const add = (l, p, o = {}) => pg.push(`<button data-p="${p}" class="${o.on ? 'on' : ''}" ${o.dis ? 'disabled' : ''}>${l}</button>`);
+  add('«', 1, {dis: T.page === 1}); add('‹', T.page - 1, {dis: T.page === 1});
+  const a = Math.max(1, T.page - 2), b = Math.min(pages, T.page + 2);
+  if (a > 1) pg.push('<span class="muted">…</span>');
+  for (let p = a; p <= b; p++) add(p, p, {on: p === T.page});
+  if (b < pages) pg.push('<span class="muted">…</span>');
+  add('›', T.page + 1, {dis: T.page === pages}); add('»', pages, {dis: T.page === pages});
+  pg.push(`<select id="psize" aria-label="عدد الصفوف">${[25, 50, 100, 200].map(n => `<option ${n === ps ? 'selected' : ''} value="${n}">${n} / صفحة</option>`).join('')}</select>`);
+  $('#pager').innerHTML = pg.join('');
+  $('#tempty').innerHTML = total ? '' : `<div class="empty"><div class="big">${ic('search')}</div><h3>لا توجد أصناف مطابقة</h3><p>غيّر البحث أو أزل بعض الفلاتر.</p></div>`;
+}
+
+/* =========================================================
+   11) لوحة التحكم
+   ========================================================= */
+function countUp(el, to) {
+  if (matchMedia('(prefers-reduced-motion:reduce)').matches) { el.textContent = fmt(to); return; }
+  const t0 = performance.now(), d = 700;
+  const step = t => { const p = Math.min(1, (t - t0) / d); el.textContent = fmt(to * (1 - Math.pow(1 - p, 3))); if (p < 1) requestAnimationFrame(step); else el.textContent = fmt(to); };
+  requestAnimationFrame(step);
+}
+function renderDashboard() {
+  const v = $('#v-dashboard');
+  if (!S.rows.length) { v.innerHTML = emptyState(); return; }
+  const I = S.idx, N = S.rows.length;
+  let totalQty = 0, zero = 0, low = 0, noLoc = 0, reorderSet = 0, value = 0;
+  const lowIds = [];
+  for (let i = 0; i < N; i++) {
+    totalQty += I.qty[i];
+    if (I.qty[i] <= 0) zero++;
+    if (I.reorder[i] > 0) { reorderSet++; if (I.qty[i] <= I.reorder[i]) { low++; lowIds.push(i); } }
+    if (I.f.loc[i] === '') noLoc++;
+    value += I.qty[i] * I.price[i];
+  }
+  const nb = distinct('brand').size, nc = distinct('car').size;
+  const models = new Set(I.n.model.filter(Boolean)).size;
+  const tile = (icon, label, val, note, o = {}) => `<${o.go ? 'button' : 'div'} class="tile ${o.cls || ''}" ${o.go ? `data-go='${o.go}'` : ''}><div class="tl">${ic(icon)}<span>${label}</span></div><div class="tv">${val}</div><div class="tn">${note || '&nbsp;'}</div></${o.go ? 'button' : 'div'}>`;
+  const top = (kind, key) => { const arr = [...distinct(kind)].sort((a, b) => b[1] - a[1]).slice(0, 8); const mx = arr[0] ? arr[0][1] : 1; return arr.length ? arr.map(([n, c]) => `<button class="bar" data-go='${JSON.stringify({[key]: n})}'><span dir="auto" title="${esc(n)}">${esc(n)}</span><span class="tr"><span class="fl" data-w="${(c / mx * 100).toFixed(1)}" style="display:block"></span></span><em>${fmt(c)}</em></button>`).join('') : '<p class="muted">لا توجد بيانات.</p>'; };
+  v.innerHTML = `
+    <div class="tiles">
+      ${tile('box', 'إجمالي الأصناف', `<span data-n="${N}">0</span>`, `في ${fmt(S.headers.length)} عمود`)}
+      ${tile('layers', 'إجمالي الكميات', `<span data-n="${totalQty}">0</span>`, `${fmt(zero)} صنف نفد`, {go: '{"stock":"zero"}'})}
+      ${tile('bolt', 'عدد الماركات', `<span data-n="${nb}">0</span>`, col('brand') < 0 ? 'لا يوجد عمود ماركة' : '')}
+      ${tile('car', 'السيارات والموديلات', `<span data-n="${nc}">0</span> <small>سيارة</small> · <span data-n="${models}">0</span> <small>موديل</small>`, '')}
+      ${tile('alert', 'وصلت حد الطلب', `<span data-n="${low}">0</span>`, reorderSet ? `من ${fmt(reorderSet)} صنف له حد طلب` : 'لم يُحدَّد حد الطلب لأي صنف', {cls: low ? 'warnt' : '', go: '{"stock":"low"}'})}
+      ${tile('clock', 'آخر تحديث للقاعدة', esc(fmtDate(S.meta.importedAt)), esc(S.meta.fileName || ''), {cls: 'date'})}
+      ${col('loc') >= 0 ? tile('pin', 'أصناف بدون موقع', `<span data-n="${noLoc}">0</span>`, `${fmt(N - noLoc)} صنف له موقع`, {cls: noLoc ? 'warnt' : '', go: '{"loc":"__none__"}'}) : ''}
+      ${col('price') >= 0 ? tile('data', 'قيمة المخزون بسعر البيع', `<span data-n="${value}">0</span>`, 'الكمية × سعر البيع') : ''}
+    </div>
+    <div class="two">
+      <div class="panel"><h3>أكثر الماركات أصنافاً</h3><div class="bars">${top('brand', 'brand')}</div></div>
+      <div class="panel"><h3>أكثر السيارات أصنافاً</h3><div class="bars teal">${top('car', 'car')}</div></div>
+    </div>
+    <div class="panel"><h3>الأصناف التي وصلت إلى حد الطلب <span class="muted" style="font-weight:400;font-size:13px">${fmt(low)} صنف</span></h3>
+      ${low ? `<div class="twrap" style="max-height:340px"><table><thead><tr><th>الكود</th><th>الاسم</th><th>الموقع</th><th>الكمية</th><th>حد الطلب</th></tr></thead><tbody>${lowIds.slice(0, 30).map(i => `<tr data-i="${i}"><td class="num"><span class="ltr">${esc(show(cell(i, 'code')))}</span></td><td dir="auto">${esc(show(cell(i, 'name')))}</td><td>${show(cell(i, 'loc')) ? `<span class="locpill ltr">${esc(show(cell(i, 'loc')))}</span>` : '<span class="nul">—</span>'}</td><td class="num" style="color:var(--warn)">${fmt(I.qty[i])}</td><td class="num">${fmt(I.reorder[i])}</td></tr>`).join('')}</tbody></table></div>`
+        : `<p class="muted">${reorderSet ? 'لا يوجد أي صنف وصل إلى حد الطلب حالياً.' : 'عمود «حد الطلب» في الملف قيمته 0 لكل الأصناف، لذلك لا يمكن اعتبار أي صنف قد وصل إلى حد الطلب. عندما تضع حداً أكبر من صفر لأي صنف ستظهر هنا الأصناف التي كميتها أقل من الحد أو تساويه.'}</p>`}
+    </div>`;
+  $$('[data-n]', v).forEach(e => countUp(e, +e.dataset.n));
+  requestAnimationFrame(() => requestAnimationFrame(() => $$('.fl', v).forEach(e => e.style.width = e.dataset.w + '%')));
+}
+
+/* =========================================================
+   12) صفحة البيانات
+   ========================================================= */
+function renderData() {
+  const v = $('#v-data'), has = S.rows.length > 0, m = S.meta;
+  const roleOf = {}; ROLES.forEach(r => { if (col(r.k) >= 0) roleOf[col(r.k)] = r; });
+  v.innerHTML = `
+    ${DB.ok ? '' : `<div class="banner warn">${ic('alert')}<span>التخزين المحلي غير متاح في هذا المتصفح. ستبقى البيانات حتى تغلق الصفحة فقط.</span></div>`}
+    <div class="drop" id="drop" tabindex="0" role="button" aria-label="رفع ملف Excel">
+      <div class="big">${ic('upload')}</div>
+      <h3>اسحب ملف Excel وأفلته هنا، أو اضغط للاختيار</h3>
+      <p class="muted">XLSX و XLS · أو ضع ملف باسم <b>data.xlsx</b> في نفس مجلد الصفحة وسيتم تحميله تلقائياً.</p>
+    </div>
+    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn" data-reload-static>${ic('undo')}<span>إعادة تحميل ملف data.xlsx الثابت من المجلد</span></button>
+    </div>
+    ${has ? `<div class="dgrid">
+      <div class="panel"><h3>القاعدة الحالية</h3>
+        <dl class="kv"><dt>الملف</dt><dd class="ltr">${esc(m.fileName || '—')}</dd><dt>الورقة</dt><dd>${esc(m.sheetName || '—')}</dd><dt>عدد الأصناف</dt><dd>${fmt(S.rows.length)}</dd><dt>عدد الأعمدة</dt><dd>${fmt(S.headers.length)}</dd><dt>آخر تحديث</dt><dd>${esc(fmtDate(m.importedAt))}</dd><dt>طريقة آخر استيراد</dt><dd>${m.mode === 'merge' ? 'دمج' : 'استبدال'}</dd><dt>عمود الموقع</dt><dd>${col('loc') >= 0 ? `«${esc(S.headers[col('loc')])}»` : '<span style="color:var(--warn)">غير محدد</span>'}</dd></dl>
+        <div class="acts">
+          <button class="btn primary" id="expAll">${ic('download')}تصدير إلى Excel</button>
+          <button class="btn" id="remap">${ic('sliders')}تعيين الأعمدة</button>
+          <button class="btn" id="restore" ${S.backupInfo ? '' : 'disabled'} title="${S.backupInfo ? 'نسخة بتاريخ ' + esc(fmtDate(S.backupInfo.savedAt)) + ' (' + fmt(S.backupInfo.count) + ' صنف)' : 'لا توجد نسخة سابقة'}">${ic('undo')}استعادة النسخة السابقة</button>
+          <button class="btn danger" id="wipe">${ic('trash')}حذف القاعدة</button>
+        </div>
+      </div>
+      <div class="panel"><h3>أعمدة الملف ووظيفة كل عمود</h3>
+        <div class="cols"><table><thead><tr><th>العمود</th><th>الوظيفة</th><th>معبأ</th></tr></thead><tbody>${S.headers.map((h, ci) => { const r = roleOf[ci]; let n = 0; for (const row of S.rows) if (!isEmpty(row[ci])) n++; return `<tr><td dir="auto">${esc(h)}</td><td>${r ? `<span class="role ${r.k === 'loc' ? 'loc' : ''}">${esc(r.label)}</span>` : '<span class="role x">إضافي (محفوظ كما هو)</span>'}</td><td class="num">${fmt(n)}</td></tr>`; }).join('')}</tbody></table></div>
+      </div>
+    </div>` : ''}
+    <p class="muted" style="margin-top:18px;font-size:13px">مكتبة SheetJS: <span id="xstat">جاري التحميل…</span></p>`;
+  ensureXLSX().then(() => { const e = $('#xstat'); if (e) e.textContent = 'جاهزة'; }).catch(() => { const e = $('#xstat'); if (e) e.innerHTML = '<span style="color:var(--danger)">غير متاحة (لا اتصال بالإنترنت). ضع xlsx.full.min.js بجانب ملف التطبيق.</span>'; });
+  const drop = $('#drop');
+  drop.onclick = () => $('#file').click();
+  drop.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('#file').click(); } };
+  ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, () => drop.classList.remove('over')));
+  if (has) {
+    $('#expAll').onclick = () => exportXlsx(S.headers, S.rows, 'AutoParts');
+    $('#restore').onclick = () => openModal({title: 'استعادة النسخة السابقة', html: `<p>سيتم استبدال القاعدة الحالية بالنسخة المحفوظة قبل آخر استيراد (${fmt(S.backupInfo.count)} صنف)، وتُحفظ الحالية كنسخة بديلة.</p>`, actions: [{label: 'استعادة', kind: 'primary', onClick: () => restoreBackup()}, {label: 'إلغاء'}]});
+    $('#wipe').onclick = () => openModal({title: 'حذف القاعدة', html: '<p>سيتم حذف كل الأصناف والنسخة السابقة من هذا المتصفح. لا يمكن التراجع، ويمكنك تصدير نسخة Excel أولاً.</p>', actions: [{label: 'حذف نهائي', kind: 'danger', onClick: async () => { await DB.wipe().catch(() => {}); S.settings = {order: [], hidden: [], pageSize: 50, sort: {col: null, dir: 1}, prices: false}; S.backupInfo = null; setData([], [], null); toast('تم حذف القاعدة.'); route(); }}, {label: 'إلغاء'}]});
+    $('#remap').onclick = async () => {
+      const nm = await askMapping(S.headers, {...S.map}, []);
+      if (!nm) return;
+      S.meta.mapNames = namesFromMap(S.headers, nm);
+      if (DB.ok) await DB.put('meta', 'main', S.meta).catch(() => {});
+      setData(S.headers, S.rows, S.meta); toast('تم تحديث تعيين الأعمدة.'); route();
+    };
+  }
+}
+
+/* =========================================================
+   13) الأحداث العامة
+   ========================================================= */
+document.addEventListener('click', async e => {
+  const t = e.target;
+  const cp = t.closest('[data-copy]');
+  if (cp) { e.stopPropagation(); await copyText(cp.dataset.copy); cp.classList.add('done'); cp.innerHTML = ic('check'); toast('تم النسخ: ' + cp.dataset.copy); setTimeout(() => { cp.classList.remove('done'); cp.innerHTML = ic('copy'); }, 1200); return; }
+  if (t.closest('[data-price]')) { e.stopPropagation(); t.closest('[data-price]').classList.toggle('show'); return; }
+  if (t.closest('[data-pick]') || t.closest('#topImport')) { $('#file').click(); return; }
+  if (t.closest('[data-reload-static]')) {
+    const b = busy('جاري البحث عن الملف الثابت…');
+    const ok = await tryAutoLoadBundledExcel(false);
+    b.close();
+    if (ok) route();
+    return;
+  }
+  if (t.closest('[data-close]') || t.id === 'scrim') { closeDrawer(); return; }
+  const op = t.closest('[data-open]'); if (op) { openDetails(+op.dataset.open); return; }
+  const sc = t.closest('[data-scope]'); if (sc) { Q.scope = sc.dataset.scope; $$('#scopeChips .chip').forEach(c => c.classList.toggle('on', c.dataset.scope === Q.scope)); doSearch(true); $('#q').focus(); return; }
+  const tr = t.closest('[data-try]'); if (tr) { $('#q').value = tr.dataset.try; doSearch(true); return; }
+  if (t.closest('[data-more]')) { Q.shown += 30; renderResults(false); return; }
+  if (t.closest('#qclear')) { $('#q').value = ''; doSearch(true); $('#q').focus(); return; }
+  const go = t.closest('[data-go]');
+  if (go) { T.filters = {...JSON.parse(go.dataset.go)}; T.q = ''; T.page = 1; T.dirty = true; location.hash = '#/table'; return; }
+  const pg = t.closest('[data-p]'); if (pg) { T.page = +pg.dataset.p; renderTable(); $('.twrap').scrollTop = 0; return; }
+  const card = t.closest('.card'); if (card) { openDetails(+card.dataset.i); return; }
+  const rowEl = t.closest('tbody tr[data-i]'); if (rowEl) { openDetails(+rowEl.dataset.i); return; }
+});
+document.addEventListener('change', e => { if (e.target.id === 'psize') { S.settings.pageSize = +e.target.value; T.page = 1; saveSettings(); renderTable(); } });
+$('#q').addEventListener('input', () => { cancelAnimationFrame(Q.raf); Q.raf = requestAnimationFrame(() => doSearch()); });
+$('#q').addEventListener('keydown', e => { if (e.key === 'Escape') { $('#q').value = ''; doSearch(true); } });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeDrawer(); closePops(); }
+  if (e.key === '/' && !/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) { e.preventDefault(); location.hash = '#/search'; setTimeout(() => $('#q').focus(), 0); }
+});
+$('#priceToggle').onclick = () => { S.settings.prices = !S.settings.prices; saveSettings(); renderChrome(); };
+$('#file').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; handleFile(f); });
+let dragN = 0;
+window.addEventListener('dragenter', e => { if ([...(e.dataTransfer?.types || [])].includes('Files')) { dragN++; $('#dropall').classList.add('on'); } });
+window.addEventListener('dragleave', () => { dragN = Math.max(0, dragN - 1); if (!dragN) $('#dropall').classList.remove('on'); });
+window.addEventListener('dragover', e => e.preventDefault());
+window.addEventListener('drop', e => { e.preventDefault(); dragN = 0; $('#dropall').classList.remove('on'); const f = e.dataTransfer?.files?.[0]; if (f) handleFile(f); });
+window.addEventListener('hashchange', route);
+
+/* =========================================================
+   14) التشغيل
+   ========================================================= */
+(async function init() {
+  try {
+    await DB.open();
+    try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch {}
+    const [meta, rows, st, bi] = await Promise.all([DB.get('meta', 'main'), DB.getAll('records'), DB.get('meta', 'settings'), DB.get('meta', 'backupInfo')]);
+    if (st) S.settings = Object.assign(S.settings, st);
+    S.backupInfo = bi || null;
+    if (meta && rows.length) setData(meta.headers, rows, meta);
+  } catch (e) {
+    console.warn('IndexedDB unavailable', e);
+    $('#storeWarn').innerHTML = `<div class="banner warn warnbar">${ic('alert')}<span>تعذّر فتح التخزين المحلي في هذا المتصفح، لذلك لن تُحفظ البيانات بعد إغلاق الصفحة.</span></div>`;
+  }
+  if (!S.rows.length) {
+    await tryAutoLoadBundledExcel(true);
+  }
+  renderChrome();
+  ensureXLSX().catch(() => {});
+  route();
+})();
+})();
+</script>
+</body>
+</html>
