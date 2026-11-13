@@ -381,6 +381,8 @@ button.tile:hover{border-color:var(--amber-line);transform:translateY(-2px)}
       <a href="#/table" data-v="table"><svg class="ic"><use href="#i-table"/></svg><span>كل الأصناف</span></a>
       <a href="#/dashboard" data-v="dashboard"><svg class="ic"><use href="#i-dash"/></svg><span>لوحة التحكم</span></a>
       <a href="#/data" data-v="data"><svg class="ic"><use href="#i-data"/></svg><span>البيانات</span></a>
+      <a href="#/oils" data-v="oils"><svg class="ic"><use href="#i-data"/></svg><span>الزيوت</span></a>
+      <a href="#/settings" data-v="settings"><svg class="ic"><use href="#i-data"/></svg><span>الإعدادات</span></a>
     </nav>
     <div class="grow"></div>
     <div class="dbcard" id="dbcard"></div>
@@ -391,7 +393,6 @@ button.tile:hover{border-color:var(--amber-line);transform:translateY(-2px)}
       <h2 id="ptitle"></h2>
       <div class="top-actions">
         <button class="btn" id="priceToggle" title="إظهار أسعار البيع في البطاقات"><svg class="ic"><use href="#i-eyeoff"/></svg><span>الأسعار</span></button>
-        <button class="btn primary" id="topImport"><svg class="ic"><use href="#i-upload"/></svg><span>رفع Excel</span></button>
       </div>
     </div>
     <div id="storeWarn"></div>
@@ -437,6 +438,8 @@ button.tile:hover{border-color:var(--amber-line);transform:translateY(-2px)}
 
     <section class="view" id="v-dashboard"></section>
     <section class="view" id="v-data"></section>
+    <section class="view" id="v-settings"></section>
+    <section class="view" id="v-oils"></section>
   </main>
 </div>
 
@@ -627,7 +630,7 @@ const namesFromMap = (headers, map) => Object.fromEntries(ROLES.map(r => [r.k, m
    3) الحالة + الفهرس (Index) للبحث السريع
    ========================================================= */
 const S = {
-  headers: [], rows: [], map: {}, meta: null, backupInfo: null, idx: null, ver: 0,
+  links: {}, oils: new Set(), log: [], headers: [], rows: [], map: {}, meta: null, backupInfo: null, idx: null, ver: 0,
   settings: {order: [], hidden: [], pageSize: 50, sort: {col: null, dir: 1}, prices: false}
 };
 const FK = ['code', 'name', 'pn1', 'pn2', 'pn3', 'pn4', 'title', 'brand', 'car', 'model', 'loc', 'notes', 'group', 'size'];
@@ -671,6 +674,13 @@ function buildIndex() {
     allN[i] = ns.join('\u0001'); allC[i] = cs.join('\u0001');
     f.car[i] = show(cell(i, 'car')); f.brand[i] = show(cell(i, 'brand')); f.group[i] = show(cell(i, 'group')); f.loc[i] = show(cell(i, 'loc'));
     qty[i] = cQ >= 0 ? num(row[cQ]) : 0; reorder[i] = cR >= 0 ? num(row[cR]) : 0; price[i] = cP >= 0 ? num(row[cP]) : 0;
+  }
+  for (let i = 0; i < N; i++) {
+    const ex = (S.links[String(show(S.rows[i][cols[0]])).trim()] || []);
+    if (!ex.length) continue;
+    const t = norm(ex.join(' ')), ct = compact(t), ci = FK.indexOf('car');
+    n.car[i] += ' ' + t; c.car[i] += ct;
+    allN[i] += '\u0001' + t; allC[i] += '\u0001' + ct;
   }
   S.idx = {n, c, allN, allC, f, qty, reorder, price, pnMap, codeMap, distinct: {}, sortKeys: {}};
   S.ver++;
@@ -1091,7 +1101,9 @@ const TITLES = {
   bulk: 'البحث المتعدد (قائمة أكواد)',
   table: 'كل الأصناف',
   dashboard: 'لوحة التحكم',
-  data: 'استيراد وتصدير البيانات'
+  data: 'استيراد وتصدير البيانات',
+  oils: 'الزيوت',
+  settings: 'الإعدادات'
 };
 let cur = '';
 function route() {
@@ -1105,8 +1117,10 @@ function route() {
   if (view === 'search') renderSearch();
   if (view === 'bulk') renderBulk();
   if (view === 'table') renderTable();
-  if (view === 'dashboard') renderDashboard();
+  if (view === 'dashboard') { renderDashboard(); dashExtras(); }
+  if (view === 'oils') renderOils();
   if (view === 'data') renderData();
+  if (view === 'settings') renderSettings();
   window.scrollTo(0, 0);
 }
 function renderChrome() {
@@ -1116,7 +1130,7 @@ function renderChrome() {
   $('#priceToggle').innerHTML = `${ic(S.settings.prices ? 'eye' : 'eyeoff')}<span>الأسعار</span>`;
 }
 function emptyState() {
-  return `<div class="empty"><div class="big">${ic('upload')}</div><h3>ارفع ملف Excel لبدء العمل</h3><p>لا توجد بيانات محفوظة بعد. ضع ملف باسم <b>data.xlsx</b> في نفس مجلد البرنامج للتحميل التلقائي، أو اختر ملفاً يدوياً.</p><div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:18px"><button class="btn primary" data-pick>${ic('upload')}اختيار ملف Excel</button><button class="btn" data-reload-static>${ic('undo')}إعادة قراءة data.xlsx الثابت</button></div></div>`;
+  return `<div class="empty"><div class="big">${ic('upload')}</div><h3>لا توجد بيانات بعد</h3><p>رفع ملفات Excel أصبح من صفحة «البيانات» فقط، أو اسحب البيانات المركزية من «الإعدادات».</p><div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:18px"><a class="btn primary" href="#/data">${ic('data')}صفحة البيانات (رفع Excel)</a><a class="btn" href="#/settings">${ic('download')}سحب البيانات من Firebase</a></div></div>`;
 }
 
 /* =========================================================
@@ -1181,7 +1195,7 @@ function cardHTML(i, k) {
     <div class="pns">${pns.length ? pns.map(p => `<span class="pn"><small>PN${p.n}</small><span class="mono ltr">${hl(p.v)}</span>${cp(p.v, 'نسخ رقم القطعة')}</span>`).join('') : '<span class="nopn">لا يوجد Part Number</span>'}</div>
     ${col('loc') >= 0 ? `<div class="loc ${loc ? '' : 'none'}"><span class="pin">${ic('pin')}</span><div><small>الموقع في المخزن</small><div class="lv">${loc ? `<span class="ltr">${hl(loc)}</span>` : 'غير محدد'}</div></div>${loc ? cp(loc, 'نسخ الموقع') : ''}</div>` : ''}
     <div class="meta3"><div><small>الماركة</small><span dir="auto" title="${esc(brand)}">${hl(brand) || '—'}</span></div><div><small>السيارة</small><span dir="auto" title="${esc(car)}">${hl(car) || '—'}</span></div><div><small>الموديل</small><span dir="auto" title="${esc(model)}">${hl(model) || '—'}</span></div></div>
-    <div class="c-foot"><div><small class="muted">الكمية المتاحة</small><div class="qbig">${isEmpty(qv) ? '—' : esc(show(qv))}<small>${esc(unit)}</small></div></div>
+    ${extraCars(i).length ? `<div class="muted" style="font-size:12.5px;margin:6px 0">${ic('bolt')} يخدم ${extraCars(i).length + 1} سيارات</div>` : ''}<div class="c-foot"><div><small class="muted">الكمية المتاحة</small><div class="qbig">${isEmpty(qv) ? '—' : esc(show(qv))}<small>${esc(unit)}</small></div></div>
       ${col('price') >= 0 ? `<span class="price" data-price title="اضغط لإظهار السعر"><small>سعر البيع</small><span class="pv">${fmt(price)}</span></span>` : ''}</div>
   </article>`;
 }
@@ -1389,6 +1403,7 @@ function openDetails(i) {
       ${col('loc') >= 0 ? `<div class="loc ${loc ? '' : 'none'}"><span class="pin">${ic('pin')}</span><div><small>الموقع في المخزن</small><div class="lv">${loc ? `<span class="ltr">${esc(loc)}</span>` : 'غير محدد'}</div></div>${loc ? cp(loc) : ''}</div>` : ''}
       ${dupCode ? `<div class="banner warn">${ic('alert')}<span>يوجد ${dupCode} صنف آخر بنفس الكود في القاعدة.</span></div>` : ''}
       ${sec('التعريف', R('code', null, {ltr: 1, copy: 1}) + R('name') + R('title') + ['pn1', 'pn2', 'pn3', 'pn4'].map(k => R(k, null, {ltr: 1, copy: 1})).join('') + R('notes'))}
+      ${carsSec(i)}
       ${sec('السيارة', R('brand') + R('car') + R('model') + R('size') + R('origin') + R('group') + R('subgroup'))}
       ${sec('المخزون والأسعار', R('loc', null, {ltr: 1, copy: 1}) + R('qty') + R('unit') + R('reorder') + R('price') + R('wholesale'))}
       ${same.size ? sec('أصناف بنفس رقم القطعة', `<div class="same">${[...same].slice(0, 12).map(j => `<button data-open="${j}"><span dir="auto">${esc(show(cell(j, 'name')))}</span><span class="mono ltr muted">${esc(show(cell(j, 'code')))}${show(cell(j, 'loc')) ? ' · ' + esc(show(cell(j, 'loc'))) : ''}</span></button>`).join('')}</div>`) : ''}
@@ -1700,6 +1715,202 @@ window.addEventListener('hashchange', route);
 /* =========================================================
    14) التشغيل
    ========================================================= */
+
+/* =========================================================
+   Firebase Firestore (REST) + صفحة الإعدادات
+   - الدمج غير مدمّر: لا يُحذف أي صنف من السحابة عند الرفع
+   - الأمان الحقيقي يتم عبر Firestore Security Rules وليس بإخفاء المفتاح
+   ========================================================= */
+const FB = {cfg: null, status: 'غير مُعدّ', last: null,
+  base() { return `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(this.cfg.projectId)}/databases/(default)/documents`; },
+  key() { return '?key=' + encodeURIComponent(this.cfg.apiKey); },
+  async call(path, opt = {}) {
+    const r = await fetch(this.base() + path, Object.assign({headers: {'Content-Type': 'application/json'}}, opt));
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error((j.error && j.error.message) || ('HTTP ' + r.status));
+    return j;
+  },
+  docId(code, used) { let id = Array.from(new TextEncoder().encode(String(code))).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 1000) || 'empty'; let n = id, i = 1; while (used.has(n)) n = id + '-' + (++i); used.add(n); return n; },
+  async test() { await this.call('/meta/main' + this.key()).catch(e => { if (!/not found|NOT_FOUND|404/i.test(e.message)) throw e; }); this.status = 'متصل'; return true; },
+  async push(onProg) {
+    const ci = col('code'); if (ci < 0) throw new Error('عمود الكود غير محدد');
+    const pid = this.cfg.projectId, root = `projects/${pid}/databases/(default)/documents`, used = new Set(), now = new Date().toISOString();
+    const writes = S.rows.map(r => ({update: {name: `${root}/parts/${this.docId(r[ci], used)}`, fields: {code: {stringValue: String(r[ci] ?? '')}, d: {stringValue: JSON.stringify(r)}, updatedAt: {stringValue: now}}}}));
+    for (let i = 0; i < writes.length; i += 400) {
+      await this.call(':commit' + this.key(), {method: 'POST', body: JSON.stringify({writes: writes.slice(i, i + 400)})});
+      onProg && onProg(Math.min(i + 400, writes.length), writes.length);
+    }
+    await this.call('/meta/main' + this.key(), {method: 'PATCH', body: JSON.stringify({fields: {headers: {stringValue: JSON.stringify(S.headers)}, meta: {stringValue: JSON.stringify(S.meta || {})}, syncedAt: {stringValue: now}, count: {integerValue: String(S.rows.length)}}})});
+    await this.call('/meta/links' + this.key(), {method: 'PATCH', body: JSON.stringify({fields: {d: {stringValue: JSON.stringify({links: S.links, oils: [...S.oils]})}}})});
+    return writes.length;
+  },
+  async pull(onProg) {
+    const m = await this.call('/meta/main' + this.key());
+    const headers = JSON.parse(m.fields.headers.stringValue), meta = JSON.parse(m.fields.meta.stringValue), rows = [];
+    let tok = '';
+    do {
+      const j = await this.call('/parts' + this.key() + '&pageSize=300' + (tok ? '&pageToken=' + encodeURIComponent(tok) : ''));
+      (j.documents || []).forEach(d => rows.push(JSON.parse(d.fields.d.stringValue)));
+      tok = j.nextPageToken || '';
+      onProg && onProg(rows.length);
+    } while (tok);
+    let lk = null; try { const j = await this.call('/meta/links' + this.key()); lk = JSON.parse(j.fields.d.stringValue); } catch {}
+    return {headers, meta, rows, lk};
+  }
+};
+async function loadFB() { try { FB.cfg = DB.ok ? await DB.get('meta', 'firebase') : null; FB.last = DB.ok ? await DB.get('meta', 'fbLast') : null; } catch {} if (FB.cfg) FB.status = 'مُعدّ (لم يُختبر)'; }
+function renderSettings() {
+  const c = FB.cfg || {};
+  $('#v-settings').innerHTML = `
+  <div class="glass" style="padding:20px;max-width:760px;display:grid;gap:14px">
+    <h3>إعدادات Firebase (Firestore)</h3>
+    <label>Firebase Project ID<input id="fbPid" class="mono" dir="ltr" style="width:100%;padding:10px;border-radius:9px;background:var(--panel);border:1px solid var(--line)" value="${esc(c.projectId || '')}"></label>
+    <label>Firebase Web API Key<input id="fbKey" class="mono" dir="ltr" style="width:100%;padding:10px;border-radius:9px;background:var(--panel);border:1px solid var(--line)" value="${esc(c.apiKey || '')}"></label>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn primary" id="fbSave">حفظ وربط</button>
+      <button class="btn" id="fbTest">اختبار الاتصال</button>
+      <button class="btn" id="fbPush" title="يضيف ويحدّث الأصناف بالكود، ولا يحذف شيئاً من السحابة">رفع نسخة الجهاز للسحابة (دمج)</button>
+      <button class="btn" id="fbPull" title="يستبدل نسخة هذا الجهاز بنسخة السحابة بعد أخذ نسخة احتياطية">سحب من السحابة</button>
+    </div>
+    <div class="muted" id="fbState">الحالة: ${esc(FB.status)} • آخر مزامنة: ${FB.last ? esc(fmtDate(FB.last)) : 'لم تتم'}</div>
+    <div class="banner warn" style="padding:12px">الأمان: مفتاح Web API ليس سراً ويظهر لأي مستخدم للموقع، فالحماية الفعلية هي قواعد Firestore. استخدم Firebase Authentication وقواعد مثل:<br><code dir="ltr" class="mono" style="display:block;margin-top:6px">match /{document=**} { allow read, write: if request.auth != null; }</code>
+    الاتصال الحالي بالمفتاح فقط يعمل لو كانت القواعد تسمح بذلك، لذا لا تترك القواعد مفتوحة للجميع في الإنتاج.</div>
+  </div><div id="impBox"></div>`;
+  renderImport();
+  const st = t => { $('#fbState').textContent = t; };
+  const need = () => { if (!FB.cfg || !FB.cfg.projectId || !FB.cfg.apiKey) { toast('احفظ Project ID و API Key أولاً', 'err'); return false; } return true; };
+  $('#fbSave').onclick = async () => {
+    FB.cfg = {projectId: $('#fbPid').value.trim(), apiKey: $('#fbKey').value.trim()};
+    if (DB.ok) await DB.put('meta', 'firebase', FB.cfg);
+    FB.status = 'مُعدّ (لم يُختبر)'; toast('تم حفظ إعدادات Firebase'); st('الحالة: ' + FB.status);
+  };
+  $('#fbTest').onclick = async () => { if (!need()) return; st('جاري الاختبار…'); try { await FB.test(); st('الحالة: متصل ✓'); toast('تم الاتصال بنجاح'); } catch (e) { FB.status = 'فشل: ' + e.message; st('الحالة: ' + FB.status); toast('فشل الاتصال: ' + e.message, 'err'); } };
+  $('#fbPush').onclick = async () => {
+    if (!need()) return; if (!S.rows.length) return toast('لا توجد بيانات محلية للرفع', 'err');
+    try { const n = await FB.push((a, b) => st(`جاري الرفع ${fmt(a)} / ${fmt(b)}`)); FB.last = new Date().toISOString(); if (DB.ok) await DB.put('meta', 'fbLast', FB.last); st('الحالة: متصل ✓ • آخر مزامنة: ' + fmtDate(FB.last)); toast(`تم رفع/تحديث ${fmt(n)} صنف`); }
+    catch (e) { toast('فشل الرفع: ' + e.message, 'err'); st('فشل الرفع: ' + e.message); }
+  };
+  $('#fbPull').onclick = async () => {
+    if (!need()) return;
+    if (S.rows.length && !confirm('سيتم استبدال نسخة هذا الجهاز بنسخة السحابة (مع حفظ نسخة احتياطية). متابعة؟')) return;
+    try {
+      const p = await FB.pull(n => st(`جاري السحب… ${fmt(n)}`));
+      if (!p.rows.length) return toast('لا توجد أصناف في السحابة', 'err');
+      const backup = S.rows.length ? {headers: S.headers, rows: S.rows, meta: S.meta, savedAt: new Date().toISOString()} : null;
+      const metaPuts = {main: Object.assign({}, p.meta, {headers: p.headers, count: p.rows.length})}; if (backup) metaPuts.backupInfo = {savedAt: backup.savedAt, count: S.rows.length};
+      if (p.lk) { S.links = p.lk.links || {}; S.oils = new Set(p.lk.oils || []); if (DB.ok) { await DB.put('meta', 'links', S.links); await DB.put('meta', 'oils', [...S.oils]); } }
+      if (DB.ok) await DB.commit({rows: p.rows, metaPuts, backup});
+      setData(p.headers, p.rows, metaPuts.main);
+      FB.last = new Date().toISOString(); if (DB.ok) await DB.put('meta', 'fbLast', FB.last);
+      st('الحالة: متصل ✓ • آخر مزامنة: ' + fmtDate(FB.last)); toast(`تم سحب ${fmt(p.rows.length)} صنف`);
+    } catch (e) { toast('فشل السحب: ' + e.message, 'err'); st('فشل السحب: ' + e.message); }
+  };
+}
+
+/* =========================================================
+   ربط الأصناف بعدة سيارات + استيراد دامج + الزيوت
+   ========================================================= */
+const carOf = i => [show(cell(i, 'car')), show(cell(i, 'model'))].map(s => String(s || '').trim()).filter(Boolean).join(' ');
+const codeOf = i => String(show(cell(i, 'code')) || '').trim();
+const extraCars = i => { const own = carOf(i); return (S.links[codeOf(i)] || []).filter(c => c !== own); };
+const isOil = i => S.oils.has(codeOf(i)) || String(show(cell(i, 'group')) || '').trim() === 'زيوت';
+function carsSec(i) {
+  const own = carOf(i), all = [...(own ? [own] : []), ...extraCars(i)];
+  if (!all.length) return '';
+  return `<div class="sec"><h4>السيارات المرتبطة (${all.length})</h4><div style="display:flex;flex-wrap:wrap;gap:8px">${all.map(c => `<button class="btn sm" data-carq="${esc(c)}">${esc(c)}</button>`).join('')}</div></div>`;
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-carq]'); if (!b) return;
+  const q = b.dataset.carq; closeDrawer(); location.hash = '#/search';
+  setTimeout(() => { const el = $('#q'); if (el) { el.value = q; el.dispatchEvent(new Event('input', {bubbles: true})); } }, 60);
+});
+function logOp(m) { S.log.unshift({t: new Date().toISOString(), m}); S.log = S.log.slice(0, 50); if (DB.ok) DB.put('meta', 'log', S.log).catch(() => {}); }
+function dashExtras() {
+  if (!S.rows.length) return;
+  const cars = new Set(); let multi = 0, oils = 0;
+  for (let i = 0; i < S.rows.length; i++) { const o = carOf(i), e = extraCars(i); if (o) cars.add(o); e.forEach(c => cars.add(c)); if (e.length) multi++; if (isOil(i)) oils++; }
+  const t = (l, v) => `<div class="glass" style="padding:14px"><div class="muted" style="font-size:13px">${l}</div><b class="mono" style="font-size:24px">${fmt(v)}</b></div>`;
+  $('#v-dashboard').insertAdjacentHTML('beforeend', `<div class="glass" style="padding:16px;margin-top:16px"><h3 style="margin-bottom:10px">قاعدة السيارات والزيوت</h3><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">${t('السيارات المسجلة', cars.size)}${t('أصناف بأكثر من سيارة', multi)}${t('أصناف الزيوت', oils)}</div>
+    <h4 style="margin:14px 0 6px">سجل العمليات</h4>${S.log.length ? S.log.slice(0, 8).map(l => `<div class="muted" style="font-size:13px">${esc(fmtDate(l.t))} — ${esc(l.m)}</div>`).join('') : '<div class="muted">لا توجد عمليات بعد</div>'}</div>`);
+}
+function renderOils() {
+  const v = $('#v-oils');
+  if (!S.rows.length) { v.innerHTML = emptyState(); return; }
+  v.innerHTML = `<label class="tsearch" style="margin-bottom:14px"><svg class="ic"><use href="#i-search"/></svg><input id="oq" type="search" dir="auto" autocomplete="off" placeholder="ابحث باسم الزيت أو الكود أو الماركة…"></label><div class="rmeta" id="ocount"></div><div class="cards" id="ocards"></div>`;
+  const ids = []; for (let i = 0; i < S.rows.length; i++) if (isOil(i)) ids.push(i);
+  const draw = () => {
+    const q = norm($('#oq').value), cq = compact(q);
+    const r = q ? ids.filter(i => S.idx.allN[i].includes(q) || S.idx.allC[i].includes(cq)) : ids;
+    setHL(q); $('#ocount').textContent = `${fmt(r.length)} صنف زيت`;
+    $('#ocards').innerHTML = r.slice(0, 120).map((i, k) => cardHTML(i, k)).join('') || '<div class="muted">لا توجد أصناف زيوت. ارفع ملف الزيوت من الإعدادات.</div>';
+  };
+  $('#oq').oninput = draw; draw();
+}
+async function readTable(file) {
+  const buf = await file.arrayBuffer(), u = new Uint8Array(buf);
+  if ((u[0] === 0xFF && u[1] === 0xFE) || (u[0] === 0xFE && u[1] === 0xFF)) {
+    const t = new TextDecoder(u[0] === 0xFF ? 'utf-16le' : 'utf-16be').decode(buf).replace(/\r/g, '');
+    const L = t.split('\n').map(l => l.split('\t').map(c => c.trim()));
+    let h = L.findIndex(r => r.includes('الكود')); if (h < 0) h = L.findIndex(r => r.length > 5);
+    const headers = L[h], data = L.slice(h + 1).filter(r => r.length === headers.length && r.some(Boolean));
+    return {headers, data};
+  }
+  await ensureXLSX(); const p = parseWorkbook(buf); return {headers: p.headers, data: p.data};
+}
+function renderImport() {
+  const cars = new Set(); S.rows.forEach((_, i) => { const c = carOf(i); if (c) cars.add(c); });
+  const inp = 'style="width:100%;padding:10px;border-radius:9px;background:var(--panel);border:1px solid var(--line)"';
+  $('#impBox').innerHTML = `<div class="glass" style="padding:20px;max-width:760px;display:grid;gap:12px;margin-top:16px">
+    <h3>رفع ملفات Excel (تحديث دامج)</h3>
+    <label>نوع الملف<select id="imType" ${inp}><option value="base">ملف الأصناف الأساسي</option><option value="car">ملف سيارة</option><option value="oil">ملف الزيوت</option></select></label>
+    <label id="imCarW" hidden>السيارة الرئيسية (تُربط بها كل أصناف الملف)<input id="imCar" list="imCars" ${inp} placeholder="مثال: شيفروليه لانوس 2"><datalist id="imCars">${[...cars].slice(0, 800).map(c => `<option value="${esc(c)}">`).join('')}</datalist></label>
+    <label>طريقة الاستيراد<select id="imMode" ${inp}><option value="merge">إضافة وتحديث (Merge) — الافتراضي، لا يحذف شيئاً</option><option value="replace">استبدال كامل (Full Replace) — بتأكيد</option></select></label>
+    <input type="file" id="imFile" accept=".xlsx,.xls,.csv,.txt" ${inp}>
+    <button class="btn primary" id="imGo">استيراد</button>
+    <div class="muted" style="font-size:13px">يُحفظ نسخة احتياطية تلقائياً قبل كل استيراد، ويمكن استعادتها من صفحة «البيانات».</div></div>`;
+  $('#imType').onchange = () => { $('#imCarW').hidden = $('#imType').value !== 'car'; };
+  $('#imGo').onclick = runImport;
+}
+async function runImport() {
+  const f = $('#imFile').files[0], type = $('#imType').value, mode = $('#imMode').value, car = $('#imCar').value.trim();
+  if (!f) return toast('اختر ملفاً أولاً', 'err');
+  if (type === 'car' && !car) return toast('اكتب اسم السيارة الرئيسية', 'err');
+  if (mode === 'replace' && !confirm('تحذير: الاستبدال الكامل سيحذف الأصناف الحالية غير الموجودة في الملف. هل أنت متأكد؟')) return;
+  const b = busy('جاري قراءة الملف…'); await tick();
+  try {
+    const p = await readTable(f), map = detectMapping(p.headers), ci = map.code;
+    if (ci === undefined || ci < 0) throw new Error('لم يتم العثور على عمود «الكود» في الملف');
+    const seen = new Map(); let errors = 0; const rows = [];
+    p.data.forEach(r => { const c = String(r[ci] ?? '').trim(); if (!c) { errors++; return; } seen.set(c, (seen.get(c) || 0) + 1); rows.push(r); });
+    const dups = [...seen.values()].filter(n => n > 1).length;
+    const oldCodes = new Set(S.rows.map((_, i) => codeOf(i)));
+    let headers = p.headers, out = rows, newMap = map, added = 0, updated = 0;
+    if (mode === 'merge' && S.rows.length) {
+      const mg = mergeRows(S.headers, S.rows, p.headers, rows, map);
+      headers = mg.headers; out = mg.rows; added = mg.added; updated = mg.updated; newMap = mapFromNames(headers, namesFromMap(p.headers, map));
+    } else added = seen.size;
+    const meta = {headers, mapNames: namesFromMap(headers, newMap), importedAt: new Date().toISOString(), fileName: f.name, count: out.length, mode};
+    const backup = S.rows.length ? {headers: S.headers, rows: S.rows, meta: S.meta, savedAt: meta.importedAt} : null;
+    const metaPuts = {main: meta}; if (backup) metaPuts.backupInfo = {savedAt: backup.savedAt, count: S.rows.length, fileName: S.meta && S.meta.fileName};
+    if (DB.ok) await DB.commit({rows: out, metaPuts, backup});
+    let newLinks = 0;
+    const codes = [...seen.keys()];
+    if (mode === 'replace') { const keep = new Set(codes); Object.keys(S.links).forEach(k => { if (!keep.has(k)) delete S.links[k]; }); }
+    S.headers = headers; S.rows = out; S.meta = meta; S.map = mapFromNames(headers, meta.mapNames);
+    if (type === 'car') codes.forEach(c => { const a = S.links[c] || (S.links[c] = []); if (!a.includes(car)) { a.push(car); newLinks++; } });
+    if (type === 'oil') codes.forEach(c => S.oils.add(c));
+    setData(headers, out, meta);
+    // الربط يُحسب بعد بناء الفهرس حتى لا نعدّ السيارة الأصلية للصنف كعلاقة جديدة
+    if (type === 'car') { newLinks = 0; codes.forEach(c => { const a = S.links[c] || []; const idx = S.idx.codeMap.get(compact(norm(c))); const own = idx ? carOf(idx[0]) : ''; if (own === car) S.links[c] = a.filter(x => x !== car); else newLinks++; }); buildIndex(); }
+    if (DB.ok) { await DB.put('meta', 'links', S.links); await DB.put('meta', 'oils', [...S.oils]); }
+    const skipped = errors;
+    logOp(`استيراد ${f.name}: جديد ${added} • محدّث ${updated} • علاقات ${newLinks}`);
+    b.close();
+    openModal({title: 'تقرير الاستيراد', html: `<div style="display:grid;gap:6px"><div>الأصناف الجديدة: <b>${fmt(added)}</b></div><div>الأصناف المحدّثة: <b>${fmt(updated)}</b></div><div>علاقات سيارات جديدة: <b>${fmt(newLinks)}</b></div><div>الأكواد المكررة داخل الملف: <b>${fmt(dups)}</b></div><div>صفوف بها أخطاء: <b>${fmt(errors)}</b></div><div>لم تُستورد: <b>${fmt(skipped)}</b> ${skipped ? '(بلا كود صنف)' : ''}</div><div class="muted">إجمالي الأصناف الآن: ${fmt(S.rows.length)}</div></div>`});
+    renderImport();
+  } catch (e) { b.close(); console.error(e); toast('فشل الاستيراد: ' + e.message + ' — لم تتغير البيانات', 'err'); }
+}
+
 (async function init() {
   try {
     await DB.open();
@@ -1708,6 +1919,8 @@ window.addEventListener('hashchange', route);
     if (st) S.settings = Object.assign(S.settings, st);
     S.backupInfo = bi || null;
     if (meta && rows.length) setData(meta.headers, rows, meta);
+    await loadFB();
+    try { S.links = (await DB.get('meta', 'links')) || {}; S.oils = new Set((await DB.get('meta', 'oils')) || []); S.log = (await DB.get('meta', 'log')) || []; if (S.rows.length) { buildIndex(); } } catch {}
   } catch (e) {
     console.warn('IndexedDB unavailable', e);
     $('#storeWarn').innerHTML = `<div class="banner warn warnbar">${ic('alert')}<span>تعذّر فتح التخزين المحلي في هذا المتصفح، لذلك لن تُحفظ البيانات بعد إغلاق الصفحة.</span></div>`;
