@@ -1758,7 +1758,23 @@ const FB = {cfg: null, status: 'غير مُعدّ', last: null,
     return {headers, meta, rows, lk};
   }
 };
-async function loadFB() { try { FB.cfg = DB.ok ? await DB.get('meta', 'firebase') : null; FB.last = DB.ok ? await DB.get('meta', 'fbLast') : null; } catch {} if (FB.cfg) FB.status = 'مُعدّ (لم يُختبر)'; }
+const DEFAULT_FB_CFG = {
+  projectId: 'alll-e7276',
+  apiKey: 'AIzaSyBbui57fPxYjCjObMXPL50RXf08NoudEvA'
+};
+
+async function loadFB() {
+  try {
+    const saved = DB.ok ? await DB.get('meta', 'firebase') : null;
+    FB.cfg = (saved && saved.projectId && saved.apiKey) ? saved : { ...DEFAULT_FB_CFG };
+    FB.last = DB.ok ? await DB.get('meta', 'fbLast') : null;
+  } catch {
+    FB.cfg = { ...DEFAULT_FB_CFG };
+  }
+  if (FB.cfg && FB.cfg.projectId && FB.cfg.apiKey) {
+    FB.status = 'مُعدّ وجاهز';
+  }
+}
 function renderSettings() {
   const c = FB.cfg || {};
   $('#v-settings').innerHTML = `
